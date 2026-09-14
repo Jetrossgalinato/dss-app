@@ -1,5 +1,36 @@
 {
+  "name": "enrollment-dss",
+  "version": "0.1.0",
+  "description": "Enrollment Forecasting DSS desktop app",
+  "main": "./out/main/index.js",
+  "author": "dss-app",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev -- --no-sandbox --disable-gpu",
+    "build": "npm run typecheck && electron-vite build",
+    "preview": "electron-vite preview -- --no-sandbox --disable-gpu",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "vue": "^3.5.13"
+  },
   "devDependencies": {
-    "electron": "^44.3.0"
+    "@tailwindcss/vite": "^4.0.14",
+    "@types/node": "^22.13.10",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "electron": "^35.7.5",
+    "electron-vite": "^3.0.0",
+    "tailwindcss": "^4.0.14",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.1",
+    "vue-tsc": "^2.2.8"
+  },
+  "allowScripts": {
+    "electron@35.7.5": true,
+    "esbuild@0.25.12": true
   }
 }
