@@ -1,0 +1,6 @@
+# .cursorrules
+- Project: Decision Support System for Enrollment Forecasting.
+- Frontend: ElectronJS (Desktop App), Vue 3 (Composition API), TypeScript, Tailwind CSS.
+- Backend: Python, FastAPI, PostgreSQL.
+- Deployment: Offline standalone desktop application. 
+- Code Style: Prioritize modularity, isolate Electron main process logic from renderer UI components via secure IPC bridges.
