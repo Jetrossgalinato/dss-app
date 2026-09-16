@@ -16,7 +16,7 @@ body {
     #f8fafc;
 }
 
-[data-sonner-toast].download-template-toast {
+[data-sonner-toast].dss-progress-toast {
   overflow: hidden;
   padding-bottom: 18px;
   transition:
@@ -24,16 +24,16 @@ body {
     opacity 320ms ease;
 }
 
-[data-sonner-toast].download-template-toast:not([data-mounted='true']) {
+[data-sonner-toast].dss-progress-toast:not([data-mounted='true']) {
   --y: translateX(calc(100% + 32px));
 }
 
-[data-sonner-toast].download-template-toast[data-removed='true'][data-swipe-out='false'] {
+[data-sonner-toast].dss-progress-toast[data-removed='true'][data-swipe-out='false'] {
   --y: translateX(calc(100% + 32px));
   opacity: 0;
 }
 
-[data-sonner-toast].download-template-toast::before {
+[data-sonner-toast].dss-progress-toast::before {
   position: absolute;
   right: 0;
   bottom: 0;
@@ -45,16 +45,16 @@ body {
   animation: download-toast-progress 5s linear forwards;
 }
 
-[data-sonner-toast].download-template-toast--error::before {
+[data-sonner-toast].dss-progress-toast--error::before {
   background: #ef4444;
   animation-duration: 6s;
 }
 
-[data-sonner-toast].download-template-toast:hover::before {
+[data-sonner-toast].dss-progress-toast:hover::before {
   animation-play-state: paused;
 }
 
-[data-sonner-toast].download-template-toast [data-close-button] {
+[data-sonner-toast].dss-progress-toast [data-close-button] {
   top: 8px;
   right: 8px;
   opacity: 1;
@@ -72,11 +72,11 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-sonner-toast].download-template-toast {
+  [data-sonner-toast].dss-progress-toast {
     transition: opacity 150ms ease;
   }
 
-  [data-sonner-toast].download-template-toast::before {
+  [data-sonner-toast].dss-progress-toast::before {
     animation: none;
   }
 }

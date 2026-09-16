@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 import type { EnrollmentList, EnrollmentRecord } from '../../shared/enrollment'
 import ConfirmDeleteDialog from './ConfirmDeleteDialog.vue'
@@ -57,9 +58,23 @@ async function confirmDelete(): Promise<void> {
   if (!result.ok) {
     pendingDelete.value = null
     error.value = result.error.message
+    toast.error('Record could not be deleted', {
+      description: result.error.message,
+      closeButton: true,
+      closeButtonPosition: 'top-right',
+      duration: 6000,
+      class: 'dss-progress-toast dss-progress-toast--error',
+    })
     return
   }
   pendingDelete.value = null
+  toast.success('Enrollment record deleted', {
+    description: `${record.academic_year} ${record.class_level} (${record.sex}) was removed.`,
+    closeButton: true,
+    closeButtonPosition: 'top-right',
+    duration: 5000,
+    class: 'dss-progress-toast',
+  })
   const targetPage =
     records.value.items.length === 1 && records.value.page > 1
       ? records.value.page - 1

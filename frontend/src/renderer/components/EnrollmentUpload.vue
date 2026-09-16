@@ -67,7 +67,7 @@ async function downloadTemplate(): Promise<void> {
       closeButton: true,
       closeButtonPosition: 'top-right',
       duration: 6000,
-      class: 'download-template-toast download-template-toast--error',
+      class: 'dss-progress-toast dss-progress-toast--error',
     })
     return
   }
@@ -82,7 +82,7 @@ async function downloadTemplate(): Promise<void> {
     closeButton: true,
     closeButtonPosition: 'top-right',
     duration: 5000,
-    class: 'download-template-toast',
+    class: 'dss-progress-toast',
   })
 }
 </script>
