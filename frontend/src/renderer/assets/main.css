@@ -15,3 +15,68 @@ body {
     radial-gradient(ellipse at bottom right, #e2e8f0 0%, transparent 50%),
     #f8fafc;
 }
+
+[data-sonner-toast].download-template-toast {
+  overflow: hidden;
+  padding-bottom: 18px;
+  transition:
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 320ms ease;
+}
+
+[data-sonner-toast].download-template-toast:not([data-mounted='true']) {
+  --y: translateX(calc(100% + 32px));
+}
+
+[data-sonner-toast].download-template-toast[data-removed='true'][data-swipe-out='false'] {
+  --y: translateX(calc(100% + 32px));
+  opacity: 0;
+}
+
+[data-sonner-toast].download-template-toast::before {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background: #22c55e;
+  content: '';
+  transform-origin: left;
+  animation: download-toast-progress 5s linear forwards;
+}
+
+[data-sonner-toast].download-template-toast--error::before {
+  background: #ef4444;
+  animation-duration: 6s;
+}
+
+[data-sonner-toast].download-template-toast:hover::before {
+  animation-play-state: paused;
+}
+
+[data-sonner-toast].download-template-toast [data-close-button] {
+  top: 8px;
+  right: 8px;
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes download-toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toast].download-template-toast {
+    transition: opacity 150ms ease;
+  }
+
+  [data-sonner-toast].download-template-toast::before {
+    animation: none;
+  }
+}

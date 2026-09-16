@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { toast } from 'vue-sonner'
 
 import type { ImportRowError, ImportSummary } from '../../shared/enrollment'
 
@@ -61,7 +62,13 @@ async function upload(): Promise<void> {
 async function downloadTemplate(): Promise<void> {
   const result = await window.api.getEnrollmentTemplate()
   if (!result.ok) {
-    message.value = result.error.message
+    toast.error('Template download failed', {
+      description: result.error.message,
+      closeButton: true,
+      closeButtonPosition: 'top-right',
+      duration: 6000,
+      class: 'download-template-toast download-template-toast--error',
+    })
     return
   }
   const url = URL.createObjectURL(new Blob([result.data], { type: 'text/csv' }))
@@ -70,6 +77,13 @@ async function downloadTemplate(): Promise<void> {
   link.download = 'enrollment-template.csv'
   link.click()
   URL.revokeObjectURL(url)
+  toast.success('CSV template downloaded', {
+    description: 'enrollment-template.csv is ready to use.',
+    closeButton: true,
+    closeButtonPosition: 'top-right',
+    duration: 5000,
+    class: 'download-template-toast',
+  })
 }
 </script>
 

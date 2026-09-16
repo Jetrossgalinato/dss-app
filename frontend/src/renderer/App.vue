@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { Toaster } from 'vue-sonner'
 
 import EnrollmentDataView from './views/EnrollmentDataView.vue'
 
@@ -20,6 +21,14 @@ onMounted(async () => {
 
 <template>
   <div class="min-h-full">
+    <Toaster
+      position="top-right"
+      close-button
+      close-button-position="top-right"
+      rich-colors
+      :duration="5000"
+      :offset="{ top: '20px', right: '20px' }"
+    />
     <header class="border-b border-slate-200 bg-white/90 px-6 py-4 backdrop-blur">
       <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
         <div>
