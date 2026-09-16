@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 
-import type { EnrollmentList } from '../../shared/enrollment'
+import type { EnrollmentList, EnrollmentRecord } from '../../shared/enrollment'
+import ConfirmDeleteDialog from './ConfirmDeleteDialog.vue'
 
 const props = defineProps<{ refreshKey: number }>()
 
@@ -18,6 +19,7 @@ const sex = ref<'' | 'Male' | 'Female'>('')
 const loading = ref(false)
 const error = ref('')
 const deletingId = ref<number | null>(null)
+const pendingDelete = ref<EnrollmentRecord | null>(null)
 
 async function load(page = 1): Promise<void> {
   loading.value = true
@@ -37,15 +39,27 @@ async function load(page = 1): Promise<void> {
   records.value = result.data
 }
 
-async function remove(id: number): Promise<void> {
-  if (!window.confirm('Delete this enrollment record?')) return
+function requestDelete(record: EnrollmentRecord): void {
+  pendingDelete.value = record
+}
+
+function cancelDelete(): void {
+  if (deletingId.value === null) pendingDelete.value = null
+}
+
+async function confirmDelete(): Promise<void> {
+  const record = pendingDelete.value
+  if (!record) return
+  const id = record.id
   deletingId.value = id
   const result = await window.api.deleteEnrollment(id)
   deletingId.value = null
   if (!result.ok) {
+    pendingDelete.value = null
     error.value = result.error.message
     return
   }
+  pendingDelete.value = null
   const targetPage =
     records.value.items.length === 1 && records.value.page > 1
       ? records.value.page - 1
@@ -150,7 +164,7 @@ watch(
                 class="font-medium text-rose-700 hover:text-rose-900 disabled:opacity-50"
                 type="button"
                 :disabled="deletingId === record.id"
-                @click="remove(record.id)"
+                @click="requestDelete(record)"
               >
                 {{ deletingId === record.id ? 'Deleting…' : 'Delete' }}
               </button>
@@ -184,4 +198,21 @@ watch(
       </div>
     </div>
   </section>
+
+  <ConfirmDeleteDialog
+    :open="pendingDelete !== null"
+    :loading="deletingId !== null"
+    :record-label="
+      pendingDelete
+        ? `${pendingDelete.academic_year} ${pendingDelete.class_level} (${pendingDelete.sex})`
+        : ''
+    "
+    :record-details="
+      pendingDelete
+        ? `${pendingDelete.enrollment_count} enrolled · ${pendingDelete.sex}`
+        : ''
+    "
+    @cancel="cancelDelete"
+    @confirm="confirmDelete"
+  />
 </template>
