@@ -1,12 +1,10 @@
 import type { ElectronAPI } from '@electron-toolkit/preload'
-import type { HealthResult } from './index'
+import type { EnrollmentApi } from '../shared/enrollment'
 
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: {
-      getBackendHealth: () => Promise<HealthResult>
-    }
+    api: EnrollmentApi
   }
 }
 
