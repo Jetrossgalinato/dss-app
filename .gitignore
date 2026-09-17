@@ -17,7 +17,10 @@ htmlcov/
 # Node / Electron / Vite
 node_modules/
 dist/
+backend/build/
 out/
+frontend/release/
+frontend/build/icon.png
 *.local
 .DS_Store
 

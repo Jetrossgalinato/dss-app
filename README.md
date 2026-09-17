@@ -1,6 +1,36 @@
 # Enrollment Forecasting DSS
 
-Offline Decision Support System for enrollment forecasting (Electron + Vue 3 + FastAPI + PostgreSQL).
+Offline Decision Support System for enrollment forecasting (Electron + Vue 3 +
+FastAPI + embedded SQLite, with optional PostgreSQL development support).
+
+## Install the desktop application
+
+End-user installers are produced for:
+
+- Windows x64: NSIS `.exe`
+- Linux x64: AppImage and `.deb`
+
+The installed application is self-contained and offline. It starts its bundled
+FastAPI service automatically and stores enrollment data in a local SQLite
+database; end users do not need Docker, PostgreSQL, Python, or Node.js.
+
+The initial installers are unsigned, so Windows SmartScreen or Linux desktop
+security may ask for confirmation. Code signing and automatic updates are not
+configured.
+
+The `.deb` package is preferred on Ubuntu/Debian systems because it configures
+Electron's sandbox during installation. If an AppImage cannot start because
+the distribution disables unprivileged user namespaces, enable that OS feature
+or launch the AppImage with `--no-sandbox` only as a compatibility fallback.
+
+Application data is retained separately from the installed program:
+
+- Windows: `%APPDATA%\Enrollment Forecasting DSS\data\enrollment.sqlite3`
+- Linux: `~/.config/Enrollment Forecasting DSS/data/enrollment.sqlite3`
+
+Backend logs are stored in the adjacent `logs/backend.log`. Close the
+application before copying `enrollment.sqlite3` as a backup. Normal upgrades
+and uninstalling the program do not delete this data.
 
 ## Prerequisites
 
@@ -42,9 +72,46 @@ npm install
 npm run dev
 ```
 
-> On some Linux setups Electron needs `--no-sandbox` / `--disable-gpu` (already included in the npm scripts). If the chrome-sandbox binary complains about permissions, those flags keep local development working.
+In development, Electron starts a SQLite-backed FastAPI process through `uv`.
+To use a separately running PostgreSQL backend instead:
 
-The Electron window shows a status view that calls the backend `/health` endpoint via a secure preload bridge (`contextIsolation` on, `nodeIntegration` off).
+```bash
+cd frontend
+DSS_BACKEND_URL=http://127.0.0.1:8000 npm run dev
+```
+
+On Linux systems without usable GPU acceleration, run
+`npm run dev:compat`.
+
+The Electron window calls the backend through a secure preload bridge
+(`contextIsolation` and renderer sandboxing on, `nodeIntegration` off). Each
+managed backend launch uses a random localhost port and private API token.
+
+## Build installers
+
+Install all build dependencies once:
+
+```bash
+cd backend
+uv sync --group dev --group desktop
+cd ../frontend
+npm install
+```
+
+Build the installer for the current operating system:
+
+```bash
+cd frontend
+npm run dist:win
+# or
+npm run dist:linux
+```
+
+Artifacts are written to `frontend/release/`. A platform-native GitHub Actions
+workflow in `.github/workflows/desktop-build.yml` runs tests and uploads the
+Windows and Linux installers. Windows installers must be built on Windows and
+Linux installers on Linux because the bundled scientific Python backend is
+platform-specific.
 
 ## Enrollment CSV format
 
