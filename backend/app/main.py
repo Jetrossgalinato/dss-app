@@ -1,14 +1,15 @@
-from fastapi import FastAPI, Request, status
+from fastapi import Depends, FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.api.enrollments import router as enrollments_router
 from app.api.forecasts import router as forecasts_router
 from app.api.reports import router as reports_router
 from app.api.sections import router as sections_router
 from app.core.config import settings
-from app.db.session import engine
+from app.db.session import get_db
 
 app = FastAPI(title=settings.app_name)
 
@@ -44,7 +45,6 @@ app.include_router(sections_router)
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    with engine.connect() as connection:
-        connection.execute(text("SELECT 1"))
+def health(db: Session = Depends(get_db)) -> dict[str, str]:
+    db.execute(text("SELECT 1"))
     return {"status": "ok", "database": "ready"}
