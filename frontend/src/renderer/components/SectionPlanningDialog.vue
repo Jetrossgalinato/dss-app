@@ -45,6 +45,11 @@ function handleKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') close()
 }
 
+function clearPlan(): void {
+  result.value = null
+  error.value = ''
+}
+
 async function generate(): Promise<void> {
   error.value = ''
   if (
@@ -158,18 +163,29 @@ watch(
                     </option>
                   </select>
                 </label>
-                <button
-                  class="inline-flex min-w-40 items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none disabled:cursor-wait disabled:opacity-60"
-                  type="submit"
-                  :disabled="loading"
-                >
-                  <span
-                    v-if="loading"
-                    class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                    aria-hidden="true"
-                  />
-                  {{ loading ? 'Generating…' : result ? 'Refresh plan' : 'Generate plan' }}
-                </button>
+                <div class="flex gap-2">
+                  <button
+                    v-if="result"
+                    class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 focus:ring-2 focus:ring-slate-400 focus:outline-none disabled:opacity-50"
+                    type="button"
+                    :disabled="loading"
+                    @click="clearPlan"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    class="inline-flex min-w-40 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none disabled:cursor-wait disabled:opacity-60"
+                    type="submit"
+                    :disabled="loading"
+                  >
+                    <span
+                      v-if="loading"
+                      class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                      aria-hidden="true"
+                    />
+                    {{ loading ? 'Generating…' : result ? 'Refresh plan' : 'Generate plan' }}
+                  </button>
+                </div>
               </div>
               <p class="mt-3 text-xs text-slate-500">
                 One maximum is applied to every class level. Forecasts are not saved.
