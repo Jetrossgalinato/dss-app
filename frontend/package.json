@@ -23,8 +23,8 @@
     "test": "vitest run",
     "build:icon": "node scripts/generate-icon.mjs",
     "build:backend": "cd ../backend && uv run --group desktop pyinstaller --clean --noconfirm desktop.spec",
-    "dist:win": "npm run build:icon && npm run build:backend && npm run build && electron-builder --config electron-builder.yml --win nsis --x64",
-    "dist:linux": "npm run build:icon && npm run build:backend && npm run build && electron-builder --config electron-builder.yml --linux AppImage deb --x64"
+    "dist:win": "npm run build:icon && npm run build:backend && npm run build && electron-builder --config electron-builder.yml --win nsis --x64 --publish never",
+    "dist:linux": "npm run build:icon && npm run build:backend && npm run build && electron-builder --config electron-builder.yml --linux AppImage deb --x64 --publish never"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
