@@ -1,12 +1,22 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
 
-const props = defineProps<{
-  open: boolean
-  loading?: boolean
-  recordLabel: string
-  recordDetails: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    loading?: boolean
+    recordLabel: string
+    recordDetails: string
+    title?: string
+    confirmLabel?: string
+    loadingLabel?: string
+  }>(),
+  {
+    title: 'Delete enrollment record?',
+    confirmLabel: 'Delete record',
+    loadingLabel: 'Deleting…',
+  },
+)
 
 const emit = defineEmits<{
   cancel: []
@@ -83,7 +93,7 @@ watch(
             </div>
 
             <h2 id="delete-dialog-title" class="mt-4 text-lg font-semibold text-slate-900">
-              Delete enrollment record?
+              {{ title }}
             </h2>
             <p id="delete-dialog-description" class="mt-2 text-sm leading-6 text-slate-600">
               This permanently removes
@@ -118,7 +128,7 @@ watch(
                 class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
                 aria-hidden="true"
               />
-              {{ loading ? 'Deleting…' : 'Delete record' }}
+              {{ loading ? loadingLabel : confirmLabel }}
             </button>
           </div>
         </section>

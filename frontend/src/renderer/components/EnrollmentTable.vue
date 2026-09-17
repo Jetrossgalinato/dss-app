@@ -21,6 +21,8 @@ const loading = ref(false)
 const error = ref('')
 const deletingId = ref<number | null>(null)
 const pendingDelete = ref<EnrollmentRecord | null>(null)
+const clearDialogOpen = ref(false)
+const clearing = ref(false)
 
 async function load(page = 1): Promise<void> {
   loading.value = true
@@ -82,6 +84,42 @@ async function confirmDelete(): Promise<void> {
   await load(targetPage)
 }
 
+function requestClearAll(): void {
+  if (records.value.total > 0) clearDialogOpen.value = true
+}
+
+function cancelClearAll(): void {
+  if (!clearing.value) clearDialogOpen.value = false
+}
+
+async function confirmClearAll(): Promise<void> {
+  clearing.value = true
+  const result = await window.api.clearEnrollments()
+  clearing.value = false
+  clearDialogOpen.value = false
+
+  if (!result.ok) {
+    error.value = result.error.message
+    toast.error('Records could not be cleared', {
+      description: result.error.message,
+      closeButton: true,
+      closeButtonPosition: 'top-right',
+      duration: 6000,
+      class: 'dss-progress-toast dss-progress-toast--error',
+    })
+    return
+  }
+
+  toast.success('Historical records cleared', {
+    description: `${result.data.deleted_count} enrollment records were permanently removed.`,
+    closeButton: true,
+    closeButtonPosition: 'top-right',
+    duration: 5000,
+    class: 'dss-progress-toast',
+  })
+  await load(1)
+}
+
 function clearFilters(): void {
   academicYear.value = ''
   classLevel.value = ''
@@ -104,6 +142,23 @@ watch(
           <h2 class="text-lg font-semibold text-slate-900">Historical records</h2>
           <p class="mt-1 text-sm text-slate-500">{{ records.total }} demographic groups</p>
         </div>
+        <button
+          class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 focus:ring-2 focus:ring-rose-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+          type="button"
+          :disabled="loading || clearing || deletingId !== null || records.total === 0"
+          @click="requestClearAll"
+        >
+          <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M9 3h6m-9 4h12m-10 0 .7 12h6.6L16 7M10 10v6m4-6v6"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+         Delete Records
+        </button>
       </div>
 
       <form class="mt-4 grid gap-3 md:grid-cols-4" @submit.prevent="load(1)">
@@ -178,7 +233,7 @@ watch(
               <button
                 class="font-medium text-rose-700 hover:text-rose-900 disabled:opacity-50"
                 type="button"
-                :disabled="deletingId === record.id"
+                :disabled="clearing || deletingId === record.id"
                 @click="requestDelete(record)"
               >
                 {{ deletingId === record.id ? 'Deleting…' : 'Delete' }}
@@ -229,5 +284,17 @@ watch(
     "
     @cancel="cancelDelete"
     @confirm="confirmDelete"
+  />
+
+  <ConfirmDeleteDialog
+    :open="clearDialogOpen"
+    :loading="clearing"
+    title="Delete all historical records?"
+    confirm-label="Delete all records"
+    loading-label="Clearing…"
+    :record-label="`all ${records.total} historical enrollment records`"
+    record-details="Forecasting and section planning will have no source data until another CSV is imported."
+    @cancel="cancelClearAll"
+    @confirm="confirmClearAll"
   />
 </template>

@@ -3,13 +3,14 @@ import math
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.enrollment import EnrollmentRecord
 from app.schemas.enrollment import (
+    BulkDeleteResponse,
     DeleteResponse,
     EnrollmentListResponse,
     ImportSummary,
@@ -104,6 +105,23 @@ def list_enrollments(
         page_size=page_size,
         pages=math.ceil(total / page_size) if total else 0,
     )
+
+
+@router.delete("", response_model=BulkDeleteResponse)
+def clear_enrollments(
+    db: Session = Depends(get_db),
+) -> BulkDeleteResponse:
+    try:
+        result = db.execute(delete(EnrollmentRecord))
+        deleted_count = result.rowcount or 0
+        db.commit()
+        return BulkDeleteResponse(deleted=True, deleted_count=deleted_count)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Historical enrollment records could not be cleared.",
+        ) from exc
 
 
 @router.get("/template")
