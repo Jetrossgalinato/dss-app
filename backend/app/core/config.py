@@ -10,6 +10,8 @@ class Settings(BaseSettings):
 
     app_name: str = "Enrollment Forecasting DSS"
     database_url: str = "postgresql+psycopg://dss:dss@127.0.0.1:5432/enrollment_dss"
+    api_token: str | None = None
+    desktop_mode: bool = False
 
 
 settings = Settings()
