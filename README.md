@@ -60,6 +60,53 @@ Academic years must be consecutive, sex must be `Male` or `Female`, and counts
 must be non-negative integers. Re-importing the same academic year, class level,
 and sex updates the existing count.
 
+## Enrollment forecasting
+
+Module B generates total enrollment forecasts per class level by summing the
+Male and Female historical records. Forecasts are computed on demand and are
+not stored.
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/forecasts/generate \
+  -H "Content-Type: application/json" \
+  -d '{"horizon": 3, "class_levels": ["Nursery"]}'
+```
+
+The `horizon` accepts 1–5 future academic years and defaults to 3. Omit
+`class_levels` to forecast every available level. A response contains
+chart-ready historical and projected points:
+
+```json
+{
+  "horizon": 3,
+  "series": [
+    {
+      "class_level": "Nursery",
+      "method": "linear_trend",
+      "observations_used": 3,
+      "history": [
+        {"academic_year": "2023-2024", "enrollment_count": 34}
+      ],
+      "forecast": [
+        {"academic_year": "2024-2025", "predicted_count": 37}
+      ]
+    }
+  ],
+  "skipped": []
+}
+```
+
+Series with at least five contiguous years use ARIMA `(1,1,0)`. Shorter
+series with at least two years, gapped series, and failed ARIMA fits use a
+linear trend. Predictions are rounded to whole learners and cannot be negative.
+
+Run backend verification with:
+
+```bash
+cd backend
+uv run pytest -q
+```
+
 ## Project layout
 
 ```text
