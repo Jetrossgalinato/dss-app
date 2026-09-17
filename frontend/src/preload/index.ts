@@ -8,6 +8,11 @@ import type {
   EnrollmentFilters,
   HealthResult,
 } from '../shared/enrollment'
+import type {
+  SectionPlanningApi,
+  SectionRecommendationRequest,
+  SectionRecommendationResponse,
+} from '../shared/section-planning'
 
 const BACKEND_URL = 'http://127.0.0.1:8000'
 
@@ -42,7 +47,7 @@ function connectionError(error: unknown): ApiError {
   }
 }
 
-const api: EnrollmentApi = {
+const api: EnrollmentApi & SectionPlanningApi = {
   getBackendHealth: async (): Promise<HealthResult> => {
     try {
       const response = await fetch(`${BACKEND_URL}/health`)
@@ -101,6 +106,21 @@ const api: EnrollmentApi = {
       const response = await fetch(`${BACKEND_URL}/api/enrollments/template`)
       if (!response.ok) return await parseResponse(response)
       return { ok: true, data: await response.text() }
+    } catch (error) {
+      return { ok: false, error: connectionError(error) }
+    }
+  },
+  getSectionRecommendations: async (
+    request: SectionRecommendationRequest,
+  ) => {
+    try {
+      return await parseResponse<SectionRecommendationResponse>(
+        await fetch(`${BACKEND_URL}/api/sections/recommendations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(request),
+        }),
+      )
     } catch (error) {
       return { ok: false, error: connectionError(error) }
     }
