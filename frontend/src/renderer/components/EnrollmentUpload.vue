@@ -2,14 +2,13 @@
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
 
-import type { ImportRowError, ImportSummary } from '../../shared/enrollment'
+import type { ImportRowError } from '../../shared/enrollment'
 
 const emit = defineEmits<{ imported: [] }>()
 
 const file = ref<File | null>(null)
 const dragging = ref(false)
 const importing = ref(false)
-const summary = ref<ImportSummary | null>(null)
 const errors = ref<ImportRowError[]>([])
 const message = ref('')
 
@@ -19,12 +18,18 @@ function chooseFile(event: Event): void {
 }
 
 function setFile(nextFile: File | null): void {
-  summary.value = null
   errors.value = []
   message.value = ''
   if (nextFile && !nextFile.name.toLowerCase().endsWith('.csv')) {
     file.value = null
     message.value = 'Please select a .csv file.'
+    toast.error('Invalid file type', {
+      description: 'Please select a CSV file.',
+      closeButton: true,
+      closeButtonPosition: 'top-right',
+      duration: 6000,
+      class: 'dss-progress-toast dss-progress-toast--error',
+    })
     return
   }
   file.value = nextFile
@@ -38,7 +43,6 @@ function dropFile(event: DragEvent): void {
 async function upload(): Promise<void> {
   if (!file.value || importing.value) return
   importing.value = true
-  summary.value = null
   errors.value = []
   message.value = ''
 
@@ -52,10 +56,22 @@ async function upload(): Promise<void> {
   if (!result.ok) {
     message.value = result.error.message
     errors.value = result.error.errors
+    toast.error('CSV import failed', {
+      description: result.error.message,
+      closeButton: true,
+      closeButtonPosition: 'top-right',
+      duration: 6000,
+      class: 'dss-progress-toast dss-progress-toast--error',
+    })
     return
   }
-  summary.value = result.data
-  message.value = 'Import completed successfully.'
+  toast.success('CSV imported successfully', {
+    description: `${result.data.inserted} inserted, ${result.data.updated} updated, ${result.data.total} processed.`,
+    closeButton: true,
+    closeButtonPosition: 'top-right',
+    duration: 5000,
+    class: 'dss-progress-toast',
+  })
   emit('imported')
 }
 
@@ -134,15 +150,10 @@ async function downloadTemplate(): Promise<void> {
 
     <div
       v-if="message"
-      class="mt-4 rounded-lg px-4 py-3 text-sm"
-      :class="summary ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'"
+      class="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-800"
       role="status"
     >
       <p class="font-medium">{{ message }}</p>
-      <p v-if="summary" class="mt-1">
-        {{ summary.inserted }} inserted, {{ summary.updated }} updated,
-        {{ summary.total }} processed.
-      </p>
     </div>
 
     <ul v-if="errors.length" class="mt-3 max-h-44 space-y-1 overflow-auto text-sm text-rose-700">

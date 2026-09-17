@@ -43,3 +43,8 @@ class ImportErrorResponse(BaseModel):
 class DeleteResponse(BaseModel):
     deleted: bool
     id: int
+
+
+class BulkDeleteResponse(BaseModel):
+    deleted: bool
+    deleted_count: int = Field(ge=0)

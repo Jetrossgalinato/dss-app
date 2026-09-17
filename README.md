@@ -107,6 +107,28 @@ cd backend
 uv run pytest -q
 ```
 
+## Class size and section planning
+
+Module C converts fresh forecasts into section recommendations:
+
+```text
+recommended sections = ceil(predicted enrollment / maximum class size)
+planned class size = ceil(predicted enrollment / recommended sections)
+```
+
+The default maximum class size is 25 and can be changed from 1–100:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/sections/recommendations \
+  -H "Content-Type: application/json" \
+  -d '{"horizon": 3, "max_class_size": 25, "class_levels": null}'
+```
+
+In the desktop app, select **Forecast & Sections**, choose the maximum size and
+forecast horizon, then select **Generate plan**. The modal displays projected
+enrollment, recommended sections, planned class size, and the forecast method
+for every class level and future academic year.
+
 ## Project layout
 
 ```text
