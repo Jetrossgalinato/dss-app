@@ -13,6 +13,11 @@ import type {
   SectionRecommendationRequest,
   SectionRecommendationResponse,
 } from '../shared/section-planning'
+import type {
+  DashboardReportRequest,
+  DashboardReportResponse,
+  ReportsApi,
+} from '../shared/reports'
 
 const BACKEND_URL = 'http://127.0.0.1:8000'
 
@@ -47,7 +52,7 @@ function connectionError(error: unknown): ApiError {
   }
 }
 
-const api: EnrollmentApi & SectionPlanningApi = {
+const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
   getBackendHealth: async (): Promise<HealthResult> => {
     try {
       const response = await fetch(`${BACKEND_URL}/health`)
@@ -125,6 +130,19 @@ const api: EnrollmentApi & SectionPlanningApi = {
     try {
       return await parseResponse<SectionRecommendationResponse>(
         await fetch(`${BACKEND_URL}/api/sections/recommendations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(request),
+        }),
+      )
+    } catch (error) {
+      return { ok: false, error: connectionError(error) }
+    }
+  },
+  getDashboardReport: async (request: DashboardReportRequest) => {
+    try {
+      return await parseResponse<DashboardReportResponse>(
+        await fetch(`${BACKEND_URL}/api/reports/dashboard`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(request),

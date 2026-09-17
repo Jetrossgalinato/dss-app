@@ -129,6 +129,38 @@ forecast horizon, then select **Generate plan**. The modal displays projected
 enrollment, recommended sections, planned class size, and the forecast method
 for every class level and future academic year.
 
+## Reports dashboard
+
+Module D adds a dedicated **Reports** route to the desktop navigation. Reports
+are generated on demand from the current enrollment records; they are not
+stored in the database.
+
+Use the class-level filter to view one level or all levels, select a 1–5 year
+forecast horizon, and adjust the maximum class size from 1–100. The dashboard
+shows:
+
+- latest enrollment, year-over-year change, next-year forecast, and required sections;
+- a historical-versus-forecast enrollment trend;
+- stacked Male/Female enrollment totals;
+- projected enrollment and recommended sections; and
+- exact historical and projected values in accessible tables.
+
+The unified report endpoint can also be called directly:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/reports/dashboard \
+  -H "Content-Type: application/json" \
+  -d '{"horizon": 3, "max_class_size": 25, "class_levels": null}'
+```
+
+Run all automated checks with:
+
+```bash
+cd backend && uv run pytest -q
+cd ../frontend && npm test
+cd ../frontend && npm run typecheck
+```
+
 ## Project layout
 
 ```text
