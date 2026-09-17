@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 import type {
   SectionRecommendation,
@@ -58,6 +59,13 @@ async function generate(): Promise<void> {
     maxClassSize.value > 100
   ) {
     error.value = 'Maximum class size must be a whole number from 1 to 100.'
+    toast.error('Invalid maximum class size', {
+      description: error.value,
+      closeButton: true,
+      closeButtonPosition: 'top-right',
+      duration: 6000,
+      class: 'dss-progress-toast dss-progress-toast--error',
+    })
     return
   }
 
@@ -71,9 +79,26 @@ async function generate(): Promise<void> {
 
   if (!response.ok) {
     error.value = response.error.message
+    toast.error('Plan generation failed', {
+      description: response.error.message,
+      closeButton: true,
+      closeButtonPosition: 'top-right',
+      duration: 6000,
+      class: 'dss-progress-toast dss-progress-toast--error',
+    })
     return
   }
   result.value = response.data
+  const recommendedSections = response.data.series
+    .flatMap((series) => series.recommendations)
+    .reduce((total, recommendation) => total + recommendation.recommended_sections, 0)
+  toast.success('Section plan generated', {
+    description: `${response.data.series.length} class levels · ${recommendedSections} recommended sections.`,
+    closeButton: true,
+    closeButtonPosition: 'top-right',
+    duration: 5000,
+    class: 'dss-progress-toast',
+  })
 }
 
 watch(
