@@ -61,7 +61,8 @@ onMounted(async () => {
         v-if="healthOk === false"
         class="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
       >
-        Start the local FastAPI backend before importing or viewing enrollment data.
+        The local data service is unavailable. Restart the application; if the
+        problem continues, check the backend log in the application data folder.
       </div>
       <div class="mb-6">
         <h2 class="text-2xl font-semibold tracking-tight text-slate-900">{{ pageTitle }}</h2>

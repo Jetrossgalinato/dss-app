@@ -1,5 +1,4 @@
-import { contextBridge } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge, ipcRenderer } from 'electron'
 
 import type {
   ApiError,
@@ -19,7 +18,26 @@ import type {
   ReportsApi,
 } from '../shared/reports'
 
-const BACKEND_URL = 'http://127.0.0.1:8000'
+interface BackendRuntimeConfig {
+  url: string
+  token: string
+}
+
+let runtimeConfigPromise: Promise<BackendRuntimeConfig> | null = null
+
+function getRuntimeConfig(): Promise<BackendRuntimeConfig> {
+  runtimeConfigPromise ??= ipcRenderer.invoke(
+    'dss:get-backend-config',
+  ) as Promise<BackendRuntimeConfig>
+  return runtimeConfigPromise
+}
+
+async function backendFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const config = await getRuntimeConfig()
+  const headers = new Headers(init.headers)
+  if (config.token) headers.set('X-DSS-Token', config.token)
+  return fetch(`${config.url}${path}`, { ...init, headers })
+}
 
 async function parseResponse<T>(response: Response): Promise<ApiResult<T>> {
   if (response.ok) {
@@ -55,7 +73,7 @@ function connectionError(error: unknown): ApiError {
 const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
   getBackendHealth: async (): Promise<HealthResult> => {
     try {
-      const response = await fetch(`${BACKEND_URL}/health`)
+      const response = await backendFetch('/health')
       if (!response.ok) {
         return { ok: false, error: `HTTP ${response.status}` }
       }
@@ -73,7 +91,7 @@ const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
       const form = new FormData()
       form.append('file', new Blob([payload.buffer], { type: 'text/csv' }), filename)
       return await parseResponse(
-        await fetch(`${BACKEND_URL}/api/enrollments/import`, {
+        await backendFetch('/api/enrollments/import', {
           method: 'POST',
           body: form,
         }),
@@ -91,7 +109,7 @@ const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
       if (filters.classLevel) query.set('class_level', filters.classLevel)
       if (filters.sex) query.set('sex', filters.sex)
       return await parseResponse(
-        await fetch(`${BACKEND_URL}/api/enrollments?${query.toString()}`),
+        await backendFetch(`/api/enrollments?${query.toString()}`),
       )
     } catch (error) {
       return { ok: false, error: connectionError(error) }
@@ -100,7 +118,7 @@ const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
   deleteEnrollment: async (id) => {
     try {
       return await parseResponse(
-        await fetch(`${BACKEND_URL}/api/enrollments/${id}`, { method: 'DELETE' }),
+        await backendFetch(`/api/enrollments/${id}`, { method: 'DELETE' }),
       )
     } catch (error) {
       return { ok: false, error: connectionError(error) }
@@ -109,7 +127,7 @@ const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
   clearEnrollments: async () => {
     try {
       return await parseResponse(
-        await fetch(`${BACKEND_URL}/api/enrollments`, { method: 'DELETE' }),
+        await backendFetch('/api/enrollments', { method: 'DELETE' }),
       )
     } catch (error) {
       return { ok: false, error: connectionError(error) }
@@ -117,7 +135,7 @@ const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
   },
   getEnrollmentTemplate: async () => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/enrollments/template`)
+      const response = await backendFetch('/api/enrollments/template')
       if (!response.ok) return await parseResponse(response)
       return { ok: true, data: await response.text() }
     } catch (error) {
@@ -129,7 +147,7 @@ const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
   ) => {
     try {
       return await parseResponse<SectionRecommendationResponse>(
-        await fetch(`${BACKEND_URL}/api/sections/recommendations`, {
+        await backendFetch('/api/sections/recommendations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(request),
@@ -142,7 +160,7 @@ const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
   getDashboardReport: async (request: DashboardReportRequest) => {
     try {
       return await parseResponse<DashboardReportResponse>(
-        await fetch(`${BACKEND_URL}/api/reports/dashboard`, {
+        await backendFetch('/api/reports/dashboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(request),
@@ -154,5 +172,4 @@ const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
   },
 }
 
-contextBridge.exposeInMainWorld('electron', electronAPI)
 contextBridge.exposeInMainWorld('api', api)

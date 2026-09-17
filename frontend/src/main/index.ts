@@ -1,11 +1,17 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
-// Linux / remote-display environments often lack a usable GPU process.
-app.disableHardwareAcceleration()
-app.commandLine.appendSwitch('disable-gpu')
-app.commandLine.appendSwitch('disable-software-rasterizer')
+import { BackendManager } from './backend-manager'
+
+if (process.env.DSS_DISABLE_GPU === '1') {
+  app.disableHardwareAcceleration()
+  app.commandLine.appendSwitch('disable-gpu')
+  app.commandLine.appendSwitch('disable-software-rasterizer')
+}
+
+let backendManager: BackendManager | null = null
+let quitting = false
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -15,9 +21,9 @@ function createWindow(): void {
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
     }
   })
 
@@ -26,7 +32,10 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    const target = new URL(details.url)
+    if (target.protocol === 'https:') {
+      void shell.openExternal(target.toString())
+    }
     return { action: 'deny' }
   })
 
@@ -37,22 +46,67 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.dss.enrollment')
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
 
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+if (!hasSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const window = BrowserWindow.getAllWindows()[0]
+    if (window) {
+      if (window.isMinimized()) window.restore()
+      window.focus()
+    }
   })
 
-  createWindow()
+  app.whenReady().then(async () => {
+    electronApp.setAppUserModelId('com.dss.enrollment')
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
+    })
+
+    backendManager = new BackendManager({
+      isPackaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      userDataPath: app.getPath('userData'),
+      projectRoot: join(app.getAppPath(), '..'),
+      onUnexpectedExit: (message) => {
+        dialog.showErrorBox('Enrollment DSS backend stopped', message)
+        app.quit()
+      },
+    })
+
+    try {
+      await backendManager.start()
+      ipcMain.handle('dss:get-backend-config', () =>
+        backendManager?.getRuntimeConfig(),
+      )
+      createWindow()
+    } catch (error) {
+      await backendManager.stop()
+      dialog.showErrorBox(
+        'Enrollment DSS could not start',
+        error instanceof Error ? error.message : 'Unknown backend startup error.',
+      )
+      app.quit()
+    }
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
   })
-})
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
-})
+  app.on('before-quit', (event) => {
+    if (quitting || !backendManager) return
+    event.preventDefault()
+    quitting = true
+    void backendManager.stop().finally(() => app.quit())
+  })
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit()
+    }
+  })
+}

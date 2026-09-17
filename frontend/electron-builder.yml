@@ -1,0 +1,48 @@
+appId: com.dss.enrollment
+productName: Enrollment Forecasting DSS
+copyright: Copyright © 2026 Charismatic Tutorial Learning Center
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+
+extraResources:
+  - from: ../backend/dist/dss-backend
+    to: backend/dss-backend
+
+asar: true
+compression: maximum
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.png
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Enrollment Forecasting DSS
+
+linux:
+  executableName: enrollment-forecasting-dss
+  syncDesktopName: true
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  icon: build/icon.png
+  category: Education
+  maintainer: Charismatic Tutorial Learning Center
+  synopsis: Offline enrollment forecasting and decision support
