@@ -101,6 +101,15 @@ const api: EnrollmentApi & SectionPlanningApi = {
       return { ok: false, error: connectionError(error) }
     }
   },
+  clearEnrollments: async () => {
+    try {
+      return await parseResponse(
+        await fetch(`${BACKEND_URL}/api/enrollments`, { method: 'DELETE' }),
+      )
+    } catch (error) {
+      return { ok: false, error: connectionError(error) }
+    }
+  },
   getEnrollmentTemplate: async () => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/enrollments/template`)

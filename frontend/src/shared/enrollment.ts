@@ -55,5 +55,6 @@ export interface EnrollmentApi {
   ) => Promise<ApiResult<ImportSummary>>
   listEnrollments: (filters: EnrollmentFilters) => Promise<ApiResult<EnrollmentList>>
   deleteEnrollment: (id: number) => Promise<ApiResult<{ deleted: boolean; id: number }>>
+  clearEnrollments: () => Promise<ApiResult<{ deleted: boolean; deleted_count: number }>>
   getEnrollmentTemplate: () => Promise<ApiResult<string>>
 }

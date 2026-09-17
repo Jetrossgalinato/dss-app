@@ -115,3 +115,22 @@ def test_template_and_file_type_validation(client: TestClient) -> None:
 
     wrong_type = upload(client, "not,csv\n", filename="enrollment.txt")
     assert wrong_type.status_code == 415
+
+
+def test_clear_all_enrollment_records(client: TestClient) -> None:
+    imported = upload(
+        client,
+        "academic_year,class_level,sex,enrollment_count\n"
+        "2023-2024,Nursery,Female,12\n"
+        "2024-2025,Nursery,Male,16\n",
+    )
+    assert imported.status_code == 200
+
+    cleared = client.delete("/api/enrollments")
+    assert cleared.status_code == 200
+    assert cleared.json() == {"deleted": True, "deleted_count": 2}
+    assert client.get("/api/enrollments").json()["total"] == 0
+
+    cleared_again = client.delete("/api/enrollments")
+    assert cleared_again.status_code == 200
+    assert cleared_again.json() == {"deleted": True, "deleted_count": 0}
