@@ -16,7 +16,7 @@ const records = ref<EnrollmentList>({
   items: [],
   total: 0,
   page: 1,
-  page_size: 20,
+  page_size: 10,
   pages: 0,
 })
 const academicYear = ref('')

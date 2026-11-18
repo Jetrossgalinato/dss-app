@@ -104,7 +104,7 @@ const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
     try {
       const query = new URLSearchParams()
       query.set('page', String(filters.page ?? 1))
-      query.set('page_size', String(filters.pageSize ?? 20))
+      query.set('page_size', String(filters.pageSize ?? 10))
       if (filters.academicYear) query.set('academic_year', filters.academicYear)
       if (filters.program) query.set('program', filters.program)
       if (filters.yearLevel) query.set('year_level', filters.yearLevel)
