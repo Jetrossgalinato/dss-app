@@ -8,8 +8,10 @@ class EnrollmentRecordResponse(BaseModel):
 
     id: int
     academic_year: str
-    class_level: str
+    program: str
+    year_level: str
     sex: str
+    location: str
     enrollment_count: int
     created_at: datetime
     updated_at: datetime

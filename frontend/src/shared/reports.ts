@@ -3,12 +3,16 @@ import type { ApiResult } from './enrollment'
 export interface DashboardReportRequest {
   horizon: number
   max_class_size: number
-  class_levels?: string[] | null
+  programs?: string[] | null
+  year_levels?: string[] | null
+  locations?: string[] | null
 }
 
 export interface HistoricalBreakdownPoint {
   academic_year: string
-  class_level: string
+  program: string
+  year_level: string
+  location: string
   male: number
   female: number
   total: number
@@ -27,7 +31,9 @@ export interface ReportProjectionPoint {
 }
 
 export interface DashboardForecastSeries {
-  class_level: string
+  program: string
+  year_level: string
+  location: string
   method: 'arima' | 'linear_trend'
   observations_used: number
   history: ReportHistoryPoint[]
@@ -35,7 +41,9 @@ export interface DashboardForecastSeries {
 }
 
 export interface SkippedReportSeries {
-  class_level: string
+  program: string
+  year_level: string
+  location: string
   reason: string
 }
 
@@ -52,7 +60,9 @@ export interface DashboardReportResponse {
   generated_at: string
   horizon: number
   max_class_size: number
-  available_class_levels: string[]
+  available_programs: string[]
+  available_year_levels: string[]
+  available_locations: string[]
   summary: DashboardSummary
   historical: HistoricalBreakdownPoint[]
   series: DashboardForecastSeries[]
@@ -61,6 +71,14 @@ export interface DashboardReportResponse {
 
 export interface ReportsApi {
   getDashboardReport: (
-    request: DashboardReportRequest
+    request: DashboardReportRequest,
   ) => Promise<ApiResult<DashboardReportResponse>>
+}
+
+export function seriesLabel(series: {
+  program: string
+  year_level: string
+  location: string
+}): string {
+  return `${series.program} ${series.year_level} · ${series.location}`
 }

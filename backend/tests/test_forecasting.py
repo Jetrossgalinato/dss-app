@@ -8,15 +8,19 @@ from app.services.forecasting import EnrollmentForecastService
 def seed_record(
     db: Session,
     academic_year: str,
-    class_level: str,
+    program: str,
+    year_level: str,
+    location: str,
     sex: str,
     count: int,
 ) -> None:
     db.add(
         EnrollmentRecord(
             academic_year=academic_year,
-            class_level=class_level,
+            program=program,
+            year_level=year_level,
             sex=sex,
+            location=location,
             enrollment_count=count,
         )
     )
@@ -26,12 +30,12 @@ def test_linear_forecast_aggregates_demographics_and_orders_history(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    seed_record(db_session, "2023-2024", "Nursery", "Male", 12)
-    seed_record(db_session, "2021-2022", "Nursery", "Female", 10)
-    seed_record(db_session, "2022-2023", "Nursery", "Male", 11)
-    seed_record(db_session, "2021-2022", "Nursery", "Male", 10)
-    seed_record(db_session, "2022-2023", "Nursery", "Female", 11)
-    seed_record(db_session, "2023-2024", "Nursery", "Female", 12)
+    seed_record(db_session, "2023-2024", "BSIT", "1st Year", "Cebu City", "Male", 12)
+    seed_record(db_session, "2021-2022", "BSIT", "1st Year", "Cebu City", "Female", 10)
+    seed_record(db_session, "2022-2023", "BSIT", "1st Year", "Cebu City", "Male", 11)
+    seed_record(db_session, "2021-2022", "BSIT", "1st Year", "Cebu City", "Male", 10)
+    seed_record(db_session, "2022-2023", "BSIT", "1st Year", "Cebu City", "Female", 11)
+    seed_record(db_session, "2023-2024", "BSIT", "1st Year", "Cebu City", "Female", 12)
     db_session.commit()
 
     response = client.post("/api/forecasts/generate", json={"horizon": 2})
@@ -41,7 +45,9 @@ def test_linear_forecast_aggregates_demographics_and_orders_history(
     assert body["horizon"] == 2
     assert body["skipped"] == []
     series = body["series"][0]
-    assert series["class_level"] == "Nursery"
+    assert series["program"] == "BSIT"
+    assert series["year_level"] == "1st Year"
+    assert series["location"] == "Cebu City"
     assert series["method"] == "linear_trend"
     assert series["observations_used"] == 3
     assert series["history"] == [
@@ -66,7 +72,15 @@ def test_gapped_history_uses_actual_years_and_linear_trend(
         ("2024-2025", 22),
         ("2026-2027", 26),
     ]:
-        seed_record(db_session, year, "Kindergarten", "Female", count)
+        seed_record(
+            db_session,
+            year,
+            "BSCS",
+            "2nd Year",
+            "Mandaue City",
+            "Female",
+            count,
+        )
     db_session.commit()
 
     response = client.post("/api/forecasts/generate", json={"horizon": 1})
@@ -87,7 +101,9 @@ def test_arima_is_selected_for_sufficient_contiguous_history(
         seed_record(
             db_session,
             f"{year}-{year + 1}",
-            "Preparatory",
+            "BSBA",
+            "3rd Year",
+            "Cebu City",
             "Female",
             count,
         )
@@ -115,7 +131,9 @@ def test_arima_failure_falls_back_and_negative_results_are_clamped(
         seed_record(
             db_session,
             f"{year}-{year + 1}",
-            "Nursery",
+            "BSIS",
+            "1st Year",
+            "Cebu City",
             "Male",
             count,
         )
@@ -134,33 +152,42 @@ def test_arima_failure_falls_back_and_negative_results_are_clamped(
     assert series["forecast"][1]["predicted_count"] == 0
 
 
-def test_class_filter_reports_unknown_and_insufficient_series(
+def test_location_filter_reports_insufficient_and_missing_series(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    seed_record(db_session, "2022-2023", "Nursery", "Female", 10)
-    seed_record(db_session, "2023-2024", "Nursery", "Female", 12)
-    seed_record(db_session, "2023-2024", "Toddler", "Male", 8)
+    seed_record(db_session, "2022-2023", "BSIT", "1st Year", "Cebu City", "Female", 10)
+    seed_record(db_session, "2023-2024", "BSIT", "1st Year", "Cebu City", "Female", 12)
+    seed_record(db_session, "2023-2024", "BSIT", "1st Year", "Mandaue City", "Male", 8)
     db_session.commit()
 
     response = client.post(
         "/api/forecasts/generate",
         json={
             "horizon": 1,
-            "class_levels": ["nursery", "Toddler", "Unknown"],
+            "programs": ["bsit"],
+            "year_levels": ["1st Year"],
+            "locations": ["Cebu City", "Mandaue City", "Unknown Town"],
         },
     )
 
     assert response.status_code == 200
     body = response.json()
-    assert [series["class_level"] for series in body["series"]] == ["Nursery"]
+    assert [
+        (series["program"], series["year_level"], series["location"])
+        for series in body["series"]
+    ] == [("BSIT", "1st Year", "Cebu City")]
     assert body["skipped"] == [
         {
-            "class_level": "Toddler",
+            "program": "BSIT",
+            "year_level": "1st Year",
+            "location": "Mandaue City",
             "reason": "At least 2 historical academic years are required.",
         },
         {
-            "class_level": "Unknown",
+            "program": "BSIT",
+            "year_level": "1st Year",
+            "location": "Unknown Town",
             "reason": "No historical enrollment data was found.",
         },
     ]
@@ -177,11 +204,13 @@ def test_empty_data_insufficient_data_and_request_validation(
         == "No historical enrollment data is available."
     )
 
-    seed_record(db_session, "2023-2024", "Nursery", "Female", 10)
+    seed_record(db_session, "2023-2024", "BSIT", "1st Year", "Cebu City", "Female", 10)
     db_session.commit()
     insufficient = client.post("/api/forecasts/generate", json={})
     assert insufficient.status_code == 422
-    assert insufficient.json()["detail"]["skipped"][0]["class_level"] == "Nursery"
+    skipped = insufficient.json()["detail"]["skipped"][0]
+    assert skipped["program"] == "BSIT"
+    assert skipped["location"] == "Cebu City"
 
     assert (
         client.post("/api/forecasts/generate", json={"horizon": 0}).status_code
@@ -191,8 +220,8 @@ def test_empty_data_insufficient_data_and_request_validation(
         client.post("/api/forecasts/generate", json={"horizon": 6}).status_code
         == 422
     )
-    duplicate_levels = client.post(
+    duplicate_programs = client.post(
         "/api/forecasts/generate",
-        json={"class_levels": ["Nursery", "nursery"]},
+        json={"programs": ["BSIT", "bsit"]},
     )
-    assert duplicate_levels.status_code == 422
+    assert duplicate_programs.status_code == 422

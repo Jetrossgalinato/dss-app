@@ -109,7 +109,8 @@ async function downloadTemplate(): Promise<void> {
       <div>
         <h2 class="text-lg font-semibold text-slate-900">Import enrollment data</h2>
         <p class="mt-1 text-sm text-slate-500">
-          Required columns: academic_year, class_level, sex, enrollment_count.
+          Required columns: academic_year, program, year_level, sex, location,
+          enrollment_count. Preschool CSVs are no longer valid.
         </p>
       </div>
       <button
@@ -137,7 +138,9 @@ async function downloadTemplate(): Promise<void> {
     </label>
 
     <div class="mt-4 flex items-center justify-between gap-4">
-      <p class="text-xs text-slate-500">Existing year, level, and sex groups are updated.</p>
+      <p class="text-xs text-slate-500">
+        Existing year, program, year level, location, and sex groups are updated.
+      </p>
       <button
         class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
         type="button"

@@ -4,10 +4,10 @@ from sqlalchemy.orm import Session
 
 from app.schemas.forecast import ForecastRequest
 from app.schemas.sections import (
-    ClassSectionRecommendations,
     SectionRecommendation,
     SectionRecommendationRequest,
     SectionRecommendationResponse,
+    SeriesSectionRecommendations,
 )
 from app.services.forecasting import EnrollmentForecastService
 
@@ -39,11 +39,13 @@ class SectionPlanningService:
             db,
             ForecastRequest(
                 horizon=request.horizon,
-                class_levels=request.class_levels,
+                programs=request.programs,
+                year_levels=request.year_levels,
+                locations=request.locations,
             ),
         )
 
-        series: list[ClassSectionRecommendations] = []
+        series: list[SeriesSectionRecommendations] = []
         for forecast_series in forecast.series:
             recommendations: list[SectionRecommendation] = []
             for point in forecast_series.forecast:
@@ -62,8 +64,10 @@ class SectionPlanningService:
                 )
 
             series.append(
-                ClassSectionRecommendations(
-                    class_level=forecast_series.class_level,
+                SeriesSectionRecommendations(
+                    program=forecast_series.program,
+                    year_level=forecast_series.year_level,
+                    location=forecast_series.location,
                     method=forecast_series.method,
                     observations_used=forecast_series.observations_used,
                     recommendations=recommendations,

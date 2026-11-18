@@ -10,10 +10,7 @@ body {
   margin: 0;
   font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
   color: #1e293b;
-  background:
-    radial-gradient(ellipse at top left, #dbeafe 0%, transparent 55%),
-    radial-gradient(ellipse at bottom right, #e2e8f0 0%, transparent 50%),
-    #f8fafc;
+  background: #f3f5f7;
 }
 
 [data-sonner-toast].dss-progress-toast {

@@ -13,7 +13,9 @@ import {
 
 const series: DashboardForecastSeries[] = [
   {
-    class_level: 'Nursery',
+    program: 'BSIT',
+    year_level: '1st Year',
+    location: 'Cebu City',
     method: 'linear_trend',
     observations_used: 2,
     history: [
@@ -30,7 +32,9 @@ const series: DashboardForecastSeries[] = [
     ],
   },
   {
-    class_level: 'Kindergarten',
+    program: 'BSCS',
+    year_level: '1st Year',
+    location: 'Cebu City',
     method: 'linear_trend',
     observations_used: 2,
     history: [
@@ -69,14 +73,18 @@ describe('report chart dataset builders', () => {
     const history: HistoricalBreakdownPoint[] = [
       {
         academic_year: '2023-2024',
-        class_level: 'Nursery',
+        program: 'BSIT',
+        year_level: '1st Year',
+        location: 'Cebu City',
         male: 12,
         female: 10,
         total: 22,
       },
       {
         academic_year: '2023-2024',
-        class_level: 'Kindergarten',
+        program: 'BSCS',
+        year_level: '1st Year',
+        location: 'Cebu City',
         male: 15,
         female: 18,
         total: 33,
