@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps<{
   programs: string[]
@@ -10,6 +10,8 @@ const props = defineProps<{
   selectedLocation: string
   horizon: number
   maxClassSize: number
+  defaultHorizon: number
+  defaultMaxClassSize: number
   loading: boolean
 }>()
 
@@ -31,6 +33,15 @@ const yearLevel = ref(props.selectedYearLevel)
 const location = ref(props.selectedLocation)
 const horizon = ref(props.horizon)
 const maxClassSize = ref(props.maxClassSize)
+
+const filtersAltered = computed(
+  () =>
+    program.value !== '' ||
+    yearLevel.value !== '' ||
+    location.value !== '' ||
+    Number(horizon.value) !== props.defaultHorizon ||
+    Number(maxClassSize.value) !== props.defaultMaxClassSize,
+)
 
 watch(
   () =>
@@ -123,22 +134,27 @@ function submit(): void {
         :disabled="loading"
       />
     </label>
-    <div class="flex gap-2">
-      <button
-        type="submit"
-        class="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-        :disabled="loading"
-      >
-        {{ loading ? 'Refreshing…' : 'Refresh report' }}
-      </button>
-      <button
-        type="button"
-        class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-        :disabled="loading"
-        @click="emit('reset')"
-      >
-        Reset
-      </button>
+    <div class="grid gap-1.5">
+      <span class="text-sm font-medium text-transparent select-none" aria-hidden="true">
+        Actions
+      </span>
+      <div class="flex gap-2">
+        <button
+          type="submit"
+          class="inline-flex h-10 flex-1 items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-semibold whitespace-nowrap text-white transition hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          :disabled="loading"
+        >
+          {{ loading ? 'Refreshing…' : 'Refresh' }}
+        </button>
+        <button
+          type="button"
+          class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:ring-2 focus:ring-slate-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+          :disabled="loading || !filtersAltered"
+          @click="emit('reset')"
+        >
+          Clear
+        </button>
+      </div>
     </div>
   </form>
 </template>
