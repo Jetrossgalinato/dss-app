@@ -3,6 +3,7 @@ import type {
   DashboardForecastSeries,
   HistoricalBreakdownPoint,
 } from '../../../shared/reports'
+import { seriesLabel } from '../../../shared/reports'
 
 defineProps<{
   historical: HistoricalBreakdownPoint[]
@@ -22,7 +23,7 @@ defineProps<{
         <table class="w-full border-collapse text-left text-sm">
           <thead class="sticky top-0 bg-slate-50 text-xs tracking-wide text-slate-500 uppercase">
             <tr>
-              <th class="px-4 py-3">Class level</th>
+              <th class="px-4 py-3">Series</th>
               <th class="px-4 py-3">Year</th>
               <th class="px-4 py-3 text-right">Forecast</th>
               <th class="px-4 py-3 text-right">Sections</th>
@@ -30,10 +31,16 @@ defineProps<{
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <template v-for="item in series" :key="item.class_level">
-              <tr v-for="point in item.projections" :key="`${item.class_level}-${point.academic_year}`">
+            <template
+              v-for="item in series"
+              :key="`${item.program}-${item.year_level}-${item.location}`"
+            >
+              <tr
+                v-for="point in item.projections"
+                :key="`${item.program}-${item.year_level}-${item.location}-${point.academic_year}`"
+              >
                 <td class="px-4 py-3 font-medium text-slate-900">
-                  {{ item.class_level }}
+                  {{ seriesLabel(item) }}
                   <span class="block text-xs font-normal text-slate-400">
                     {{ item.method === 'arima' ? 'ARIMA' : 'Linear trend' }}
                   </span>
@@ -59,7 +66,9 @@ defineProps<{
           <thead class="sticky top-0 bg-slate-50 text-xs tracking-wide text-slate-500 uppercase">
             <tr>
               <th class="px-4 py-3">Year</th>
-              <th class="px-4 py-3">Class level</th>
+              <th class="px-4 py-3">Program</th>
+              <th class="px-4 py-3">Year level</th>
+              <th class="px-4 py-3">Location</th>
               <th class="px-4 py-3 text-right">Male</th>
               <th class="px-4 py-3 text-right">Female</th>
               <th class="px-4 py-3 text-right">Total</th>
@@ -68,10 +77,12 @@ defineProps<{
           <tbody class="divide-y divide-slate-100">
             <tr
               v-for="point in historical"
-              :key="`${point.academic_year}-${point.class_level}`"
+              :key="`${point.academic_year}-${point.program}-${point.year_level}-${point.location}`"
             >
               <td class="px-4 py-3 text-slate-600">{{ point.academic_year }}</td>
-              <td class="px-4 py-3 font-medium text-slate-900">{{ point.class_level }}</td>
+              <td class="px-4 py-3 font-medium text-slate-900">{{ point.program }}</td>
+              <td class="px-4 py-3 text-slate-700">{{ point.year_level }}</td>
+              <td class="px-4 py-3 text-slate-700">{{ point.location }}</td>
               <td class="px-4 py-3 text-right">{{ point.male }}</td>
               <td class="px-4 py-3 text-right">{{ point.female }}</td>
               <td class="px-4 py-3 text-right font-semibold">{{ point.total }}</td>

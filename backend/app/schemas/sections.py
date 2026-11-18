@@ -18,8 +18,10 @@ class SectionRecommendation(BaseModel):
     planned_class_size: int = Field(ge=0)
 
 
-class ClassSectionRecommendations(BaseModel):
-    class_level: str
+class SeriesSectionRecommendations(BaseModel):
+    program: str
+    year_level: str
+    location: str
     method: Literal["arima", "linear_trend"]
     observations_used: int = Field(ge=2)
     recommendations: list[SectionRecommendation]
@@ -29,5 +31,5 @@ class SectionRecommendationResponse(BaseModel):
     generated_at: datetime
     horizon: int
     max_class_size: int
-    series: list[ClassSectionRecommendations]
+    series: list[SeriesSectionRecommendations]
     skipped: list[SkippedForecastSeries]

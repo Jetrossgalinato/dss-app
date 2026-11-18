@@ -6,14 +6,23 @@ import pandas as pd
 from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
+from app.domain.enrollment_dims import (
+    ALLOWED_PROGRAMS,
+    ALLOWED_YEAR_LEVELS,
+    normalize_location,
+    normalize_program,
+    normalize_year_level,
+)
 from app.models.enrollment import EnrollmentRecord
 from app.schemas.enrollment import ImportRowError, ImportSummary
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 REQUIRED_COLUMNS = {
     "academic_year",
-    "class_level",
+    "program",
+    "year_level",
     "sex",
+    "location",
     "enrollment_count",
 }
 ACADEMIC_YEAR_PATTERN = re.compile(r"^(\d{4})-(\d{4})$")
@@ -29,13 +38,21 @@ class EnrollmentImportError(ValueError):
 @dataclass(frozen=True)
 class ValidatedEnrollmentRow:
     academic_year: str
-    class_level: str
+    program: str
+    year_level: str
     sex: str
+    location: str
     enrollment_count: int
 
     @property
-    def key(self) -> tuple[str, str, str]:
-        return (self.academic_year, self.class_level, self.sex)
+    def key(self) -> tuple[str, str, str, str, str]:
+        return (
+            self.academic_year,
+            self.program,
+            self.year_level,
+            self.sex,
+            self.location,
+        )
 
 
 def _normalized_header(value: object) -> str:
@@ -95,13 +112,15 @@ def parse_enrollment_csv(file_bytes: bytes) -> list[ValidatedEnrollmentRow]:
 
     errors: list[ImportRowError] = []
     validated: list[ValidatedEnrollmentRow] = []
-    seen: dict[tuple[str, str, str], int] = {}
+    seen: dict[tuple[str, str, str, str, str], int] = {}
 
     for index, source in frame.iterrows():
         csv_row = int(index) + 2
         academic_year = str(source["academic_year"]).strip()
-        class_level = str(source["class_level"]).strip()
+        program_raw = str(source["program"]).strip()
+        year_level_raw = str(source["year_level"]).strip()
         raw_sex = str(source["sex"]).strip()
+        location_raw = str(source["location"]).strip()
         raw_count = str(source["enrollment_count"]).strip()
 
         year_match = ACADEMIC_YEAR_PATTERN.fullmatch(academic_year)
@@ -113,30 +132,57 @@ def parse_enrollment_csv(file_bytes: bytes) -> list[ValidatedEnrollmentRow]:
                     message="Use consecutive years in YYYY-YYYY format.",
                 )
             )
-        if not class_level:
+
+        program = normalize_program(program_raw)
+        if program is None:
             errors.append(
                 ImportRowError(
                     row=csv_row,
-                    field="class_level",
-                    message="Class level is required.",
-                )
-            )
-        elif len(class_level) > 100:
-            errors.append(
-                ImportRowError(
-                    row=csv_row,
-                    field="class_level",
-                    message="Class level must be 100 characters or fewer.",
+                    field="program",
+                    message=(
+                        "Program must be one of: "
+                        + ", ".join(ALLOWED_PROGRAMS)
+                        + "."
+                    ),
                 )
             )
 
-        sex = {"male": "Male", "female": "Female"}.get(raw_sex.casefold())
-        if sex is None:
+        year_level = normalize_year_level(year_level_raw)
+        if year_level is None:
+            errors.append(
+                ImportRowError(
+                    row=csv_row,
+                    field="year_level",
+                    message=(
+                        "Year level must be one of: "
+                        + ", ".join(ALLOWED_YEAR_LEVELS)
+                        + "."
+                    ),
+                )
+            )
+
+        sex: str | None = None
+        sex_key = raw_sex.casefold()
+        if sex_key == "male":
+            sex = "Male"
+        elif sex_key == "female":
+            sex = "Female"
+        else:
             errors.append(
                 ImportRowError(
                     row=csv_row,
                     field="sex",
                     message="Sex must be Male or Female.",
+                )
+            )
+
+        location = normalize_location(location_raw)
+        if not location:
+            errors.append(
+                ImportRowError(
+                    row=csv_row,
+                    field="location",
+                    message="Location is required and cannot be blank.",
                 )
             )
 
@@ -152,11 +198,20 @@ def parse_enrollment_csv(file_bytes: bytes) -> list[ValidatedEnrollmentRow]:
         else:
             count = int(raw_count)
 
-        if year_match and class_level and sex is not None and count is not None:
+        if (
+            year_match
+            and program is not None
+            and year_level is not None
+            and sex is not None
+            and location
+            and count is not None
+        ):
             row = ValidatedEnrollmentRow(
                 academic_year=academic_year,
-                class_level=class_level,
+                program=program,
+                year_level=year_level,
                 sex=sex,
+                location=location,
                 enrollment_count=count,
             )
             if row.key in seen:
@@ -187,13 +242,21 @@ def upsert_enrollment_rows(
         select(EnrollmentRecord).where(
             tuple_(
                 EnrollmentRecord.academic_year,
-                EnrollmentRecord.class_level,
+                EnrollmentRecord.program,
+                EnrollmentRecord.year_level,
                 EnrollmentRecord.sex,
+                EnrollmentRecord.location,
             ).in_(keys)
         )
     ).all()
     existing = {
-        (record.academic_year, record.class_level, record.sex): record
+        (
+            record.academic_year,
+            record.program,
+            record.year_level,
+            record.sex,
+            record.location,
+        ): record
         for record in existing_records
     }
 
@@ -206,8 +269,10 @@ def upsert_enrollment_rows(
             new_records.append(
                 EnrollmentRecord(
                     academic_year=row.academic_year,
-                    class_level=row.class_level,
+                    program=row.program,
+                    year_level=row.year_level,
                     sex=row.sex,
+                    location=row.location,
                     enrollment_count=row.enrollment_count,
                 )
             )

@@ -3,6 +3,7 @@ from collections import defaultdict
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.domain.enrollment_dims import normalize_location
 from app.models.enrollment import EnrollmentRecord
 from app.schemas.forecast import ForecastRequest
 from app.schemas.reports import (
@@ -24,8 +25,16 @@ class DashboardReportService:
         request: DashboardReportRequest,
     ) -> DashboardReportResponse:
         aggregate_rows = self._load_demographic_history(db)
-        available_class_levels = sorted(
+        available_programs = sorted(
             {row[1] for row in aggregate_rows},
+            key=str.casefold,
+        )
+        available_year_levels = sorted(
+            {row[2] for row in aggregate_rows},
+            key=str.casefold,
+        )
+        available_locations = sorted(
+            {row[3] for row in aggregate_rows},
             key=str.casefold,
         )
 
@@ -33,15 +42,12 @@ class DashboardReportService:
             db,
             ForecastRequest(
                 horizon=request.horizon,
-                class_levels=request.class_levels,
+                programs=request.programs,
+                year_levels=request.year_levels,
+                locations=request.locations,
             ),
         )
-        selected_levels = (
-            {level.casefold() for level in request.class_levels}
-            if request.class_levels
-            else {level.casefold() for level in available_class_levels}
-        )
-        historical = self._build_historical_points(aggregate_rows, selected_levels)
+        historical = self._build_historical_points(aggregate_rows, request)
 
         report_series: list[DashboardForecastSeries] = []
         for series in forecast.series:
@@ -61,7 +67,9 @@ class DashboardReportService:
                 )
             report_series.append(
                 DashboardForecastSeries(
-                    class_level=series.class_level,
+                    program=series.program,
+                    year_level=series.year_level,
+                    location=series.location,
                     method=series.method,
                     observations_used=series.observations_used,
                     history=series.history,
@@ -73,7 +81,9 @@ class DashboardReportService:
             generated_at=forecast.generated_at,
             horizon=forecast.horizon,
             max_class_size=request.max_class_size,
-            available_class_levels=available_class_levels,
+            available_programs=available_programs,
+            available_year_levels=available_year_levels,
+            available_locations=available_locations,
             summary=self._build_summary(historical, report_series),
             historical=historical,
             series=report_series,
@@ -83,53 +93,90 @@ class DashboardReportService:
     def _load_demographic_history(
         self,
         db: Session,
-    ) -> list[tuple[str, str, str, int]]:
+    ) -> list[tuple[str, str, str, str, str, int]]:
         rows = db.execute(
             select(
                 EnrollmentRecord.academic_year,
-                EnrollmentRecord.class_level,
+                EnrollmentRecord.program,
+                EnrollmentRecord.year_level,
+                EnrollmentRecord.location,
                 EnrollmentRecord.sex,
                 func.sum(EnrollmentRecord.enrollment_count).label("total"),
             )
             .group_by(
                 EnrollmentRecord.academic_year,
-                EnrollmentRecord.class_level,
+                EnrollmentRecord.program,
+                EnrollmentRecord.year_level,
+                EnrollmentRecord.location,
                 EnrollmentRecord.sex,
             )
             .order_by(
                 EnrollmentRecord.academic_year,
-                EnrollmentRecord.class_level,
+                EnrollmentRecord.program,
+                EnrollmentRecord.year_level,
+                EnrollmentRecord.location,
                 EnrollmentRecord.sex,
             )
         ).all()
         return [
-            (academic_year, class_level, sex, int(total))
-            for academic_year, class_level, sex, total in rows
+            (academic_year, program, year_level, location, sex, int(total))
+            for academic_year, program, year_level, location, sex, total in rows
         ]
 
     def _build_historical_points(
         self,
-        rows: list[tuple[str, str, str, int]],
-        selected_levels: set[str],
+        rows: list[tuple[str, str, str, str, str, int]],
+        request: DashboardReportRequest,
     ) -> list[HistoricalBreakdownPoint]:
-        grouped: dict[tuple[str, str], dict[str, int]] = defaultdict(
+        program_filter = (
+            {value.casefold() for value in request.programs}
+            if request.programs
+            else None
+        )
+        year_filter = (
+            {value.casefold() for value in request.year_levels}
+            if request.year_levels
+            else None
+        )
+        location_filter = (
+            {normalize_location(value).casefold() for value in request.locations}
+            if request.locations
+            else None
+        )
+
+        grouped: dict[tuple[str, str, str, str], dict[str, int]] = defaultdict(
             lambda: {"Male": 0, "Female": 0}
         )
-        for academic_year, class_level, sex, total in rows:
-            if class_level.casefold() in selected_levels:
-                grouped[(academic_year, class_level)][sex] += total
+        for academic_year, program, year_level, location, sex, total in rows:
+            if program_filter is not None and program.casefold() not in program_filter:
+                continue
+            if year_filter is not None and year_level.casefold() not in year_filter:
+                continue
+            if (
+                location_filter is not None
+                and location.casefold() not in location_filter
+            ):
+                continue
+            grouped[(academic_year, program, year_level, location)][sex] += total
 
         return [
             HistoricalBreakdownPoint(
                 academic_year=academic_year,
-                class_level=class_level,
+                program=program,
+                year_level=year_level,
+                location=location,
                 male=counts["Male"],
                 female=counts["Female"],
                 total=counts["Male"] + counts["Female"],
             )
-            for (academic_year, class_level), counts in sorted(
+            for (academic_year, program, year_level, location), counts in sorted(
                 grouped.items(),
-                key=lambda item: (item[0][0], item[0][1].casefold()),
+                key=lambda item: (
+                    item[0][0],
+                    item[0][1].casefold(),
+                    item[0][2].casefold(),
+                    item[0][3].casefold(),
+                ),
             )
         ]
 

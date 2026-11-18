@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 
 import type { DashboardReportResponse } from '../../shared/reports'
+import { seriesLabel } from '../../shared/reports'
 import DemographicBreakdownChart from '../components/reports/DemographicBreakdownChart.vue'
 import EnrollmentTrendChart from '../components/reports/EnrollmentTrendChart.vue'
 import ReportDataTables from '../components/reports/ReportDataTables.vue'
@@ -14,8 +15,12 @@ const DEFAULT_HORIZON = 3
 const DEFAULT_MAX_CLASS_SIZE = 25
 
 const report = ref<DashboardReportResponse | null>(null)
-const classLevels = ref<string[]>([])
-const selectedClassLevel = ref('')
+const programs = ref<string[]>([])
+const yearLevels = ref<string[]>([])
+const locations = ref<string[]>([])
+const selectedProgram = ref('')
+const selectedYearLevel = ref('')
+const selectedLocation = ref('')
 const horizon = ref(DEFAULT_HORIZON)
 const maxClassSize = ref(DEFAULT_MAX_CLASS_SIZE)
 const loading = ref(true)
@@ -29,12 +34,16 @@ async function loadReport(showSuccess = false): Promise<void> {
   const result = await window.api.getDashboardReport({
     horizon: horizon.value,
     max_class_size: maxClassSize.value,
-    class_levels: selectedClassLevel.value ? [selectedClassLevel.value] : null,
+    programs: selectedProgram.value ? [selectedProgram.value] : null,
+    year_levels: selectedYearLevel.value ? [selectedYearLevel.value] : null,
+    locations: selectedLocation.value ? [selectedLocation.value] : null,
   })
 
   if (result.ok) {
     report.value = result.data
-    classLevels.value = result.data.available_class_levels
+    programs.value = result.data.available_programs
+    yearLevels.value = result.data.available_year_levels
+    locations.value = result.data.available_locations
     if (showSuccess) {
       toast.success('Report refreshed', {
         description: 'Charts and tables now use the latest report data.',
@@ -53,7 +62,9 @@ async function loadReport(showSuccess = false): Promise<void> {
 }
 
 function applyFilters(filters: {
-  classLevel: string
+  program: string
+  yearLevel: string
+  location: string
   horizon: number
   maxClassSize: number
 }): void {
@@ -69,14 +80,18 @@ function applyFilters(filters: {
     })
     return
   }
-  selectedClassLevel.value = filters.classLevel
+  selectedProgram.value = filters.program
+  selectedYearLevel.value = filters.yearLevel
+  selectedLocation.value = filters.location
   horizon.value = filters.horizon
   maxClassSize.value = filters.maxClassSize
   void loadReport(true)
 }
 
 function resetFilters(): void {
-  selectedClassLevel.value = ''
+  selectedProgram.value = ''
+  selectedYearLevel.value = ''
+  selectedLocation.value = ''
   horizon.value = DEFAULT_HORIZON
   maxClassSize.value = DEFAULT_MAX_CLASS_SIZE
   void loadReport(true)
@@ -90,10 +105,16 @@ onMounted(() => {
 <template>
   <div class="space-y-6">
     <ReportFilters
-      :class-levels="classLevels"
-      :selected-class-level="selectedClassLevel"
+      :programs="programs"
+      :year-levels="yearLevels"
+      :locations="locations"
+      :selected-program="selectedProgram"
+      :selected-year-level="selectedYearLevel"
+      :selected-location="selectedLocation"
       :horizon="horizon"
       :max-class-size="maxClassSize"
+      :default-horizon="DEFAULT_HORIZON"
+      :default-max-class-size="DEFAULT_MAX_CLASS_SIZE"
       :loading="loading"
       @submit="applyFilters"
       @reset="resetFilters"
@@ -141,10 +162,13 @@ onMounted(() => {
         class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
         role="status"
       >
-        <p class="font-semibold">Some class levels were skipped</p>
+        <p class="font-semibold">Some series were skipped</p>
         <ul class="mt-1 list-disc pl-5">
-          <li v-for="item in report.skipped" :key="item.class_level">
-            {{ item.class_level }}: {{ item.reason }}
+          <li
+            v-for="item in report.skipped"
+            :key="`${item.program}-${item.year_level}-${item.location}`"
+          >
+            {{ seriesLabel(item) }}: {{ item.reason }}
           </li>
         </ul>
       </div>

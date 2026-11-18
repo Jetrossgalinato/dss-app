@@ -3,7 +3,9 @@ import type { ApiResult } from './enrollment'
 export interface SectionRecommendationRequest {
   horizon: number
   max_class_size: number
-  class_levels?: string[] | null
+  programs?: string[] | null
+  year_levels?: string[] | null
+  locations?: string[] | null
 }
 
 export interface SectionRecommendation {
@@ -14,15 +16,19 @@ export interface SectionRecommendation {
   planned_class_size: number
 }
 
-export interface ClassSectionRecommendations {
-  class_level: string
+export interface SeriesSectionRecommendations {
+  program: string
+  year_level: string
+  location: string
   method: 'arima' | 'linear_trend'
   observations_used: number
   recommendations: SectionRecommendation[]
 }
 
 export interface SkippedSectionSeries {
-  class_level: string
+  program: string
+  year_level: string
+  location: string
   reason: string
 }
 
@@ -30,7 +36,7 @@ export interface SectionRecommendationResponse {
   generated_at: string
   horizon: number
   max_class_size: number
-  series: ClassSectionRecommendations[]
+  series: SeriesSectionRecommendations[]
   skipped: SkippedSectionSeries[]
 }
 

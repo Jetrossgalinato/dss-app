@@ -2,11 +2,24 @@ export type HealthResult =
   | { ok: true; status: string }
   | { ok: false; error: string }
 
+export const ALLOWED_PROGRAMS = ['BSBA', 'BSIT', 'BSCS', 'BSIS'] as const
+export const ALLOWED_YEAR_LEVELS = [
+  '1st Year',
+  '2nd Year',
+  '3rd Year',
+  '4th Year',
+] as const
+
+export type Program = (typeof ALLOWED_PROGRAMS)[number]
+export type YearLevel = (typeof ALLOWED_YEAR_LEVELS)[number]
+
 export interface EnrollmentRecord {
   id: number
   academic_year: string
-  class_level: string
+  program: string
+  year_level: string
   sex: 'Male' | 'Female'
+  location: string
   enrollment_count: number
   created_at: string
   updated_at: string
@@ -16,7 +29,9 @@ export interface EnrollmentFilters {
   page?: number
   pageSize?: number
   academicYear?: string
-  classLevel?: string
+  program?: string
+  yearLevel?: string
+  location?: string
   sex?: '' | 'Male' | 'Female'
 }
 
