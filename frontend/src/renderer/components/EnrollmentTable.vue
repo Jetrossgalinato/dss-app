@@ -266,11 +266,49 @@ watch(
             </td>
             <td class="px-6 py-4 text-right">
               <button
-                class="font-medium text-rose-700 hover:text-rose-900 disabled:opacity-50"
+                class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-rose-700 transition hover:bg-rose-50 hover:text-rose-900 focus:ring-2 focus:ring-rose-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                 type="button"
                 :disabled="clearing || deletingId === record.id"
                 @click="requestDelete(record)"
               >
+                <svg
+                  v-if="deletingId === record.id"
+                  aria-hidden="true"
+                  class="h-4 w-4 animate-spin"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="3"
+                  />
+                  <path
+                    class="opacity-90"
+                    d="M4 12a8 8 0 0 1 8-8"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                  />
+                </svg>
+                <svg
+                  v-else
+                  aria-hidden="true"
+                  class="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <path
+                    d="M9 3h6m-9 4h12m-10 0 .7 12h6.6L16 7M10 10v6m4-6v6"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
                 {{ deletingId === record.id ? 'Deleting…' : 'Delete' }}
               </button>
             </td>
