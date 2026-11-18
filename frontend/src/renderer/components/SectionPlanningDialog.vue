@@ -312,13 +312,13 @@ watch(
                         <td class="px-4 py-3 text-right text-slate-700">
                           {{ row.planned_class_size }}
                         </td>
-                        <td class="px-4 py-3">
+                        <td class="px-4 py-3 whitespace-nowrap">
                           <span
-                            class="rounded-full px-2.5 py-1 text-xs font-medium"
+                            class="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold tracking-wide whitespace-nowrap"
                             :class="
                               row.method === 'arima'
                                 ? 'bg-violet-100 text-violet-800'
-                                : 'bg-slate-100 text-slate-700'
+                                : 'bg-sky-100 text-sky-800'
                             "
                           >
                             {{ row.method === 'arima' ? 'ARIMA' : 'Linear trend' }}
