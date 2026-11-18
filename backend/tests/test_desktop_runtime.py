@@ -21,9 +21,9 @@ def test_sqlite_migrations_and_data_persist_across_connections(
             text(
                 """
                 INSERT INTO enrollment_records
-                    (academic_year, class_level, sex, enrollment_count)
+                    (academic_year, program, year_level, sex, location, enrollment_count)
                 VALUES
-                    ('2025-2026', 'Nursery', 'Female', 18)
+                    ('2025-2026', 'BSIT', '1st Year', 'Female', 'Cebu City', 18)
                 """
             )
         )

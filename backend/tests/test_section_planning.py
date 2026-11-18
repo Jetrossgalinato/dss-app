@@ -9,14 +9,18 @@ from app.services.section_planning import compute_section_recommendation
 def seed_record(
     db: Session,
     academic_year: str,
-    class_level: str,
+    program: str,
+    year_level: str,
+    location: str,
     count: int,
 ) -> None:
     db.add(
         EnrollmentRecord(
             academic_year=academic_year,
-            class_level=class_level,
+            program=program,
+            year_level=year_level,
             sex="Female",
+            location=location,
             enrollment_count=count,
         )
     )
@@ -47,19 +51,19 @@ def test_compute_section_recommendation_rejects_invalid_values() -> None:
         compute_section_recommendation(20, 0)
 
 
-def test_endpoint_uses_default_limit_and_class_filter(
+def test_endpoint_uses_default_limit_and_program_filter(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    seed_record(db_session, "2022-2023", "Nursery", 20)
-    seed_record(db_session, "2023-2024", "Nursery", 30)
-    seed_record(db_session, "2022-2023", "Kindergarten", 10)
-    seed_record(db_session, "2023-2024", "Kindergarten", 12)
+    seed_record(db_session, "2022-2023", "BSIT", "1st Year", "Cebu City", 20)
+    seed_record(db_session, "2023-2024", "BSIT", "1st Year", "Cebu City", 30)
+    seed_record(db_session, "2022-2023", "BSCS", "1st Year", "Cebu City", 10)
+    seed_record(db_session, "2023-2024", "BSCS", "1st Year", "Cebu City", 12)
     db_session.commit()
 
     response = client.post(
         "/api/sections/recommendations",
-        json={"horizon": 2, "class_levels": ["Nursery"]},
+        json={"horizon": 2, "programs": ["BSIT"]},
     )
 
     assert response.status_code == 200
@@ -68,7 +72,9 @@ def test_endpoint_uses_default_limit_and_class_filter(
     assert body["max_class_size"] == 25
     assert len(body["series"]) == 1
     series = body["series"][0]
-    assert series["class_level"] == "Nursery"
+    assert series["program"] == "BSIT"
+    assert series["year_level"] == "1st Year"
+    assert series["location"] == "Cebu City"
     assert series["method"] == "linear_trend"
     assert series["recommendations"] == [
         {
@@ -88,16 +94,16 @@ def test_endpoint_uses_default_limit_and_class_filter(
     ]
 
 
-def test_endpoint_applies_custom_limit_to_multiple_classes(
+def test_endpoint_applies_custom_limit_to_multiple_series(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    for class_level, counts in {
-        "Nursery": (20, 30),
-        "Kindergarten": (30, 40),
+    for program, counts in {
+        "BSIT": (20, 30),
+        "BSCS": (30, 40),
     }.items():
-        seed_record(db_session, "2022-2023", class_level, counts[0])
-        seed_record(db_session, "2023-2024", class_level, counts[1])
+        seed_record(db_session, "2022-2023", program, "1st Year", "Cebu City", counts[0])
+        seed_record(db_session, "2023-2024", program, "1st Year", "Cebu City", counts[1])
     db_session.commit()
 
     response = client.post(
@@ -108,24 +114,19 @@ def test_endpoint_applies_custom_limit_to_multiple_classes(
     assert response.status_code == 200
     body = response.json()
     assert body["max_class_size"] == 20
-    assert {series["class_level"] for series in body["series"]} == {
-        "Nursery",
-        "Kindergarten",
-    }
-    nursery = next(
-        series for series in body["series"] if series["class_level"] == "Nursery"
-    )
-    assert nursery["recommendations"][0]["predicted_enrollment"] == 40
-    assert nursery["recommendations"][0]["recommended_sections"] == 2
+    assert {series["program"] for series in body["series"]} == {"BSIT", "BSCS"}
+    bsit = next(series for series in body["series"] if series["program"] == "BSIT")
+    assert bsit["recommendations"][0]["predicted_enrollment"] == 40
+    assert bsit["recommendations"][0]["recommended_sections"] == 2
 
 
 def test_endpoint_propagates_skipped_forecast_series(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    seed_record(db_session, "2022-2023", "Nursery", 20)
-    seed_record(db_session, "2023-2024", "Nursery", 25)
-    seed_record(db_session, "2023-2024", "Toddler", 8)
+    seed_record(db_session, "2022-2023", "BSIT", "1st Year", "Cebu City", 20)
+    seed_record(db_session, "2023-2024", "BSIT", "1st Year", "Cebu City", 25)
+    seed_record(db_session, "2023-2024", "BSIT", "1st Year", "Mandaue City", 8)
     db_session.commit()
 
     response = client.post(
@@ -135,7 +136,9 @@ def test_endpoint_propagates_skipped_forecast_series(
 
     assert response.status_code == 200
     body = response.json()
-    assert [item["class_level"] for item in body["skipped"]] == ["Toddler"]
+    assert [
+        (item["program"], item["location"]) for item in body["skipped"]
+    ] == [("BSIT", "Mandaue City")]
     assert "At least 2" in body["skipped"][0]["reason"]
     assert body["series"][0]["recommendations"][0]["max_class_size"] == 15
 
@@ -148,7 +151,7 @@ def test_endpoint_propagates_skipped_forecast_series(
         {"max_class_size": 10.5},
         {"horizon": 0},
         {"horizon": 6},
-        {"class_levels": ["Nursery", "nursery"]},
+        {"programs": ["BSIT", "bsit"]},
     ],
 )
 def test_endpoint_rejects_invalid_requests(

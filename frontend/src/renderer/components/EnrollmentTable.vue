@@ -2,7 +2,12 @@
 import { onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
-import type { EnrollmentList, EnrollmentRecord } from '../../shared/enrollment'
+import {
+  ALLOWED_PROGRAMS,
+  ALLOWED_YEAR_LEVELS,
+  type EnrollmentList,
+  type EnrollmentRecord,
+} from '../../shared/enrollment'
 import ConfirmDeleteDialog from './ConfirmDeleteDialog.vue'
 
 const props = defineProps<{ refreshKey: number }>()
@@ -15,7 +20,9 @@ const records = ref<EnrollmentList>({
   pages: 0,
 })
 const academicYear = ref('')
-const classLevel = ref('')
+const program = ref('')
+const yearLevel = ref('')
+const location = ref('')
 const sex = ref<'' | 'Male' | 'Female'>('')
 const loading = ref(false)
 const error = ref('')
@@ -24,6 +31,10 @@ const pendingDelete = ref<EnrollmentRecord | null>(null)
 const clearDialogOpen = ref(false)
 const clearing = ref(false)
 
+function recordLabel(record: EnrollmentRecord): string {
+  return `${record.academic_year} ${record.program} ${record.year_level} · ${record.location} (${record.sex})`
+}
+
 async function load(page = 1): Promise<void> {
   loading.value = true
   error.value = ''
@@ -31,7 +42,9 @@ async function load(page = 1): Promise<void> {
     page,
     pageSize: records.value.page_size,
     academicYear: academicYear.value.trim(),
-    classLevel: classLevel.value.trim(),
+    program: program.value.trim(),
+    yearLevel: yearLevel.value.trim(),
+    location: location.value.trim(),
     sex: sex.value,
   })
   loading.value = false
@@ -71,7 +84,7 @@ async function confirmDelete(): Promise<void> {
   }
   pendingDelete.value = null
   toast.success('Enrollment record deleted', {
-    description: `${record.academic_year} ${record.class_level} (${record.sex}) was removed.`,
+    description: `${recordLabel(record)} was removed.`,
     closeButton: true,
     closeButtonPosition: 'top-right',
     duration: 5000,
@@ -122,7 +135,9 @@ async function confirmClearAll(): Promise<void> {
 
 function clearFilters(): void {
   academicYear.value = ''
-  classLevel.value = ''
+  program.value = ''
+  yearLevel.value = ''
+  location.value = ''
   sex.value = ''
   void load(1)
 }
@@ -157,20 +172,36 @@ watch(
               stroke-linejoin="round"
             />
           </svg>
-         Delete Records
+          Delete Records
         </button>
       </div>
 
-      <form class="mt-4 grid gap-3 md:grid-cols-4" @submit.prevent="load(1)">
+      <form class="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6" @submit.prevent="load(1)">
         <input
           v-model="academicYear"
           class="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
           placeholder="Academic year"
         />
-        <input
-          v-model="classLevel"
+        <select
+          v-model="program"
           class="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-          placeholder="Class level"
+        >
+          <option value="">All programs</option>
+          <option v-for="item in ALLOWED_PROGRAMS" :key="item" :value="item">{{ item }}</option>
+        </select>
+        <select
+          v-model="yearLevel"
+          class="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+        >
+          <option value="">All year levels</option>
+          <option v-for="item in ALLOWED_YEAR_LEVELS" :key="item" :value="item">
+            {{ item }}
+          </option>
+        </select>
+        <input
+          v-model="location"
+          class="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          placeholder="Location"
         />
         <select
           v-model="sex"
@@ -207,7 +238,9 @@ watch(
         <thead class="bg-slate-50 text-xs tracking-wide text-slate-500 uppercase">
           <tr>
             <th class="px-6 py-3 font-semibold">Academic year</th>
-            <th class="px-6 py-3 font-semibold">Class level</th>
+            <th class="px-6 py-3 font-semibold">Program</th>
+            <th class="px-6 py-3 font-semibold">Year level</th>
+            <th class="px-6 py-3 font-semibold">Location</th>
             <th class="px-6 py-3 font-semibold">Sex</th>
             <th class="px-6 py-3 text-right font-semibold">Enrollment</th>
             <th class="px-6 py-3 text-right font-semibold">Action</th>
@@ -215,16 +248,18 @@ watch(
         </thead>
         <tbody class="divide-y divide-slate-100">
           <tr v-if="loading">
-            <td class="px-6 py-8 text-center text-slate-500" colspan="5">Loading records…</td>
+            <td class="px-6 py-8 text-center text-slate-500" colspan="7">Loading records…</td>
           </tr>
           <tr v-else-if="!records.items.length">
-            <td class="px-6 py-8 text-center text-slate-500" colspan="5">
+            <td class="px-6 py-8 text-center text-slate-500" colspan="7">
               No enrollment records found.
             </td>
           </tr>
           <tr v-for="record in records.items" v-else :key="record.id" class="hover:bg-slate-50">
             <td class="px-6 py-4 font-medium text-slate-900">{{ record.academic_year }}</td>
-            <td class="px-6 py-4 text-slate-700">{{ record.class_level }}</td>
+            <td class="px-6 py-4 text-slate-700">{{ record.program }}</td>
+            <td class="px-6 py-4 text-slate-700">{{ record.year_level }}</td>
+            <td class="px-6 py-4 text-slate-700">{{ record.location }}</td>
             <td class="px-6 py-4 text-slate-700">{{ record.sex }}</td>
             <td class="px-6 py-4 text-right font-semibold text-slate-900">
               {{ record.enrollment_count }}
@@ -272,11 +307,7 @@ watch(
   <ConfirmDeleteDialog
     :open="pendingDelete !== null"
     :loading="deletingId !== null"
-    :record-label="
-      pendingDelete
-        ? `${pendingDelete.academic_year} ${pendingDelete.class_level} (${pendingDelete.sex})`
-        : ''
-    "
+    :record-label="pendingDelete ? recordLabel(pendingDelete) : ''"
     :record-details="
       pendingDelete
         ? `${pendingDelete.enrollment_count} enrolled · ${pendingDelete.sex}`

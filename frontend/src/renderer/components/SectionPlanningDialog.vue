@@ -18,7 +18,9 @@ const result = ref<SectionRecommendationResponse | null>(null)
 const maxSizeInput = ref<HTMLInputElement | null>(null)
 
 interface RecommendationRow extends SectionRecommendation {
-  classLevel: string
+  program: string
+  yearLevel: string
+  location: string
   method: 'arima' | 'linear_trend'
 }
 
@@ -26,7 +28,9 @@ const rows = computed<RecommendationRow[]>(() =>
   (result.value?.series ?? []).flatMap((series) =>
     series.recommendations.map((recommendation) => ({
       ...recommendation,
-      classLevel: series.class_level,
+      program: series.program,
+      yearLevel: series.year_level,
+      location: series.location,
       method: series.method,
     })),
   ),
@@ -73,7 +77,9 @@ async function generate(): Promise<void> {
   const response = await window.api.getSectionRecommendations({
     horizon: horizon.value,
     max_class_size: maxClassSize.value,
-    class_levels: null,
+    programs: null,
+    year_levels: null,
+    locations: null,
   })
   loading.value = false
 
@@ -93,7 +99,7 @@ async function generate(): Promise<void> {
     .flatMap((series) => series.recommendations)
     .reduce((total, recommendation) => total + recommendation.recommended_sections, 0)
   toast.success('Section plan generated', {
-    description: `${response.data.series.length} class levels · ${recommendedSections} recommended sections.`,
+    description: `${response.data.series.length} series · ${recommendedSections} recommended sections.`,
     closeButton: true,
     closeButtonPosition: 'top-right',
     duration: 5000,
@@ -138,7 +144,8 @@ watch(
                 Forecast &amp; section planning
               </h2>
               <p id="planning-dialog-description" class="mt-1 text-sm text-slate-500">
-                Generate enrollment forecasts and recommended preschool sections.
+                Generate enrollment forecasts and recommended college sections by
+                program, year level, and location.
               </p>
             </div>
             <button
@@ -213,7 +220,8 @@ watch(
                 </div>
               </div>
               <p class="mt-3 text-xs text-slate-500">
-                One maximum is applied to every class level. Forecasts are not saved.
+                One maximum is applied to every program/year/location series. Forecasts
+                are not saved.
               </p>
             </form>
 
@@ -229,7 +237,7 @@ watch(
               <div class="mt-5 grid gap-3 sm:grid-cols-3">
                 <div class="rounded-xl border border-slate-200 bg-white p-4">
                   <p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">
-                    Class levels
+                    Series
                   </p>
                   <p class="mt-1 text-2xl font-semibold text-slate-900">
                     {{ result.series.length }}
@@ -255,20 +263,26 @@ watch(
                 v-if="result.skipped.length"
                 class="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
               >
-                <p class="font-semibold">Some class levels were skipped</p>
+                <p class="font-semibold">Some series were skipped</p>
                 <ul class="mt-1 list-inside list-disc">
-                  <li v-for="item in result.skipped" :key="item.class_level">
-                    {{ item.class_level }}: {{ item.reason }}
+                  <li
+                    v-for="item in result.skipped"
+                    :key="`${item.program}-${item.year_level}-${item.location}`"
+                  >
+                    {{ item.program }} {{ item.year_level }} · {{ item.location }}:
+                    {{ item.reason }}
                   </li>
                 </ul>
               </div>
 
               <div class="mt-5 overflow-hidden rounded-xl border border-slate-200 bg-white">
                 <div class="overflow-x-auto">
-                  <table class="w-full min-w-[760px] text-left text-sm">
+                  <table class="w-full min-w-[920px] text-left text-sm">
                     <thead class="bg-slate-100 text-xs tracking-wide text-slate-600 uppercase">
                       <tr>
-                        <th class="px-4 py-3 font-semibold">Class level</th>
+                        <th class="px-4 py-3 font-semibold">Program</th>
+                        <th class="px-4 py-3 font-semibold">Year level</th>
+                        <th class="px-4 py-3 font-semibold">Location</th>
                         <th class="px-4 py-3 font-semibold">Academic year</th>
                         <th class="px-4 py-3 text-right font-semibold">Forecast</th>
                         <th class="px-4 py-3 text-right font-semibold">Maximum</th>
@@ -278,8 +292,13 @@ watch(
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
-                      <tr v-for="row in rows" :key="`${row.classLevel}-${row.academic_year}`">
-                        <td class="px-4 py-3 font-medium text-slate-900">{{ row.classLevel }}</td>
+                      <tr
+                        v-for="row in rows"
+                        :key="`${row.program}-${row.yearLevel}-${row.location}-${row.academic_year}`"
+                      >
+                        <td class="px-4 py-3 font-medium text-slate-900">{{ row.program }}</td>
+                        <td class="px-4 py-3 text-slate-700">{{ row.yearLevel }}</td>
+                        <td class="px-4 py-3 text-slate-700">{{ row.location }}</td>
                         <td class="px-4 py-3 text-slate-700">{{ row.academic_year }}</td>
                         <td class="px-4 py-3 text-right text-slate-700">
                           {{ row.predicted_enrollment }}

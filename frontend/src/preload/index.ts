@@ -106,7 +106,9 @@ const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
       query.set('page', String(filters.page ?? 1))
       query.set('page_size', String(filters.pageSize ?? 20))
       if (filters.academicYear) query.set('academic_year', filters.academicYear)
-      if (filters.classLevel) query.set('class_level', filters.classLevel)
+      if (filters.program) query.set('program', filters.program)
+      if (filters.yearLevel) query.set('year_level', filters.yearLevel)
+      if (filters.location) query.set('location', filters.location)
       if (filters.sex) query.set('sex', filters.sex)
       return await parseResponse(
         await backendFetch(`/api/enrollments?${query.toString()}`),

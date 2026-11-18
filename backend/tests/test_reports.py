@@ -7,7 +7,9 @@ from app.models.enrollment import EnrollmentRecord
 def seed(
     db: Session,
     year: str,
-    level: str,
+    program: str,
+    year_level: str,
+    location: str,
     male: int,
     female: int,
 ) -> None:
@@ -15,14 +17,18 @@ def seed(
         [
             EnrollmentRecord(
                 academic_year=year,
-                class_level=level,
+                program=program,
+                year_level=year_level,
                 sex="Male",
+                location=location,
                 enrollment_count=male,
             ),
             EnrollmentRecord(
                 academic_year=year,
-                class_level=level,
+                program=program,
+                year_level=year_level,
                 sex="Female",
+                location=location,
                 enrollment_count=female,
             ),
         ]
@@ -33,9 +39,9 @@ def test_dashboard_composes_history_forecast_sections_and_summary(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    seed(db_session, "2021-2022", "Nursery", 8, 12)
-    seed(db_session, "2022-2023", "Nursery", 10, 12)
-    seed(db_session, "2023-2024", "Nursery", 12, 14)
+    seed(db_session, "2021-2022", "BSIT", "1st Year", "Cebu City", 8, 12)
+    seed(db_session, "2022-2023", "BSIT", "1st Year", "Cebu City", 10, 12)
+    seed(db_session, "2023-2024", "BSIT", "1st Year", "Cebu City", 12, 14)
     db_session.commit()
 
     response = client.post(
@@ -45,25 +51,33 @@ def test_dashboard_composes_history_forecast_sections_and_summary(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["available_class_levels"] == ["Nursery"]
+    assert body["available_programs"] == ["BSIT"]
+    assert body["available_year_levels"] == ["1st Year"]
+    assert body["available_locations"] == ["Cebu City"]
     assert body["historical"] == [
         {
             "academic_year": "2021-2022",
-            "class_level": "Nursery",
+            "program": "BSIT",
+            "year_level": "1st Year",
+            "location": "Cebu City",
             "male": 8,
             "female": 12,
             "total": 20,
         },
         {
             "academic_year": "2022-2023",
-            "class_level": "Nursery",
+            "program": "BSIT",
+            "year_level": "1st Year",
+            "location": "Cebu City",
             "male": 10,
             "female": 12,
             "total": 22,
         },
         {
             "academic_year": "2023-2024",
-            "class_level": "Nursery",
+            "program": "BSIT",
+            "year_level": "1st Year",
+            "location": "Cebu City",
             "male": 12,
             "female": 14,
             "total": 26,
@@ -78,7 +92,9 @@ def test_dashboard_composes_history_forecast_sections_and_summary(
         "next_year_recommended_sections": 3,
     }
     series = body["series"][0]
-    assert series["class_level"] == "Nursery"
+    assert series["program"] == "BSIT"
+    assert series["year_level"] == "1st Year"
+    assert series["location"] == "Cebu City"
     assert series["method"] == "linear_trend"
     assert series["projections"] == [
         {
@@ -96,40 +112,37 @@ def test_dashboard_composes_history_forecast_sections_and_summary(
     ]
 
 
-def test_dashboard_filters_class_but_keeps_filter_options(
+def test_dashboard_filters_program_but_keeps_filter_options(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    for year, nursery, kinder in [
+    for year, bsit, bscs in [
         ("2022-2023", 20, 30),
         ("2023-2024", 22, 33),
     ]:
-        seed(db_session, year, "Nursery", nursery, 0)
-        seed(db_session, year, "Kindergarten", kinder, 0)
+        seed(db_session, year, "BSIT", "1st Year", "Cebu City", bsit, 0)
+        seed(db_session, year, "BSCS", "1st Year", "Cebu City", bscs, 0)
     db_session.commit()
 
     response = client.post(
         "/api/reports/dashboard",
-        json={"horizon": 1, "class_levels": ["nursery"]},
+        json={"horizon": 1, "programs": ["bsit"]},
     )
 
     assert response.status_code == 200
     body = response.json()
-    assert body["available_class_levels"] == ["Kindergarten", "Nursery"]
-    assert [item["class_level"] for item in body["historical"]] == [
-        "Nursery",
-        "Nursery",
-    ]
-    assert [item["class_level"] for item in body["series"]] == ["Nursery"]
+    assert body["available_programs"] == ["BSCS", "BSIT"]
+    assert [item["program"] for item in body["historical"]] == ["BSIT", "BSIT"]
+    assert [item["program"] for item in body["series"]] == ["BSIT"]
 
 
 def test_dashboard_propagates_skipped_series(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    seed(db_session, "2022-2023", "Nursery", 10, 10)
-    seed(db_session, "2023-2024", "Nursery", 11, 11)
-    seed(db_session, "2023-2024", "Toddler", 4, 5)
+    seed(db_session, "2022-2023", "BSIT", "1st Year", "Cebu City", 10, 10)
+    seed(db_session, "2023-2024", "BSIT", "1st Year", "Cebu City", 11, 11)
+    seed(db_session, "2023-2024", "BSIT", "1st Year", "Mandaue City", 4, 5)
     db_session.commit()
 
     response = client.post("/api/reports/dashboard", json={})
@@ -137,7 +150,9 @@ def test_dashboard_propagates_skipped_series(
     assert response.status_code == 200
     assert response.json()["skipped"] == [
         {
-            "class_level": "Toddler",
+            "program": "BSIT",
+            "year_level": "1st Year",
+            "location": "Mandaue City",
             "reason": "At least 2 historical academic years are required.",
         }
     ]

@@ -115,40 +115,46 @@ platform-specific.
 
 ## Enrollment CSV format
 
-Module A accepts UTF-8 CSV files up to 5 MB:
+Module A accepts UTF-8 CSV files up to 5 MB. Preschool CSVs that used
+`class_level` (Nursery/Kindergarten) are no longer valid—clear existing
+records and re-import a college CSV after upgrading:
 
 ```csv
-academic_year,class_level,sex,enrollment_count
-2024-2025,Nursery,Female,18
-2024-2025,Nursery,Male,16
+academic_year,program,year_level,sex,location,enrollment_count
+2024-2025,BSIT,1st Year,Female,Cebu City,42
+2024-2025,BSIT,1st Year,Male,Cebu City,38
 ```
 
-Academic years must be consecutive, sex must be `Male` or `Female`, and counts
-must be non-negative integers. Re-importing the same academic year, class level,
-and sex updates the existing count.
+Allowed programs are `BSBA`, `BSIT`, `BSCS`, and `BSIS`. Year levels are
+`1st Year` through `4th Year`. Location is required and is trimmed/title-cased
+on import. Academic years must be consecutive, sex must be `Male` or `Female`,
+and counts must be non-negative integers. Re-importing the same academic year,
+program, year level, sex, and location updates the existing count.
 
 ## Enrollment forecasting
 
-Module B generates total enrollment forecasts per class level by summing the
-Male and Female historical records. Forecasts are computed on demand and are
-not stored.
+Module B generates total enrollment forecasts per `program + year_level +
+location` by summing the Male and Female historical records. Forecasts are
+computed on demand and are not stored.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/forecasts/generate \
   -H "Content-Type: application/json" \
-  -d '{"horizon": 3, "class_levels": ["Nursery"]}'
+  -d '{"horizon": 3, "programs": ["BSIT"], "year_levels": ["1st Year"], "locations": ["Cebu City"]}'
 ```
 
 The `horizon` accepts 1–5 future academic years and defaults to 3. Omit
-`class_levels` to forecast every available level. A response contains
-chart-ready historical and projected points:
+`programs`, `year_levels`, and/or `locations` to include every matching series.
+A response contains chart-ready historical and projected points:
 
 ```json
 {
   "horizon": 3,
   "series": [
     {
-      "class_level": "Nursery",
+      "program": "BSIT",
+      "year_level": "1st Year",
+      "location": "Cebu City",
       "method": "linear_trend",
       "observations_used": 3,
       "history": [
@@ -188,13 +194,13 @@ The default maximum class size is 25 and can be changed from 1–100:
 ```bash
 curl -X POST http://127.0.0.1:8000/api/sections/recommendations \
   -H "Content-Type: application/json" \
-  -d '{"horizon": 3, "max_class_size": 25, "class_levels": null}'
+  -d '{"horizon": 3, "max_class_size": 25, "programs": null, "year_levels": null, "locations": null}'
 ```
 
 In the desktop app, select **Forecast & Sections**, choose the maximum size and
 forecast horizon, then select **Generate plan**. The modal displays projected
 enrollment, recommended sections, planned class size, and the forecast method
-for every class level and future academic year.
+for every program/year level/location series and future academic year.
 
 ## Reports dashboard
 
@@ -202,9 +208,9 @@ Module D adds a dedicated **Reports** route to the desktop navigation. Reports
 are generated on demand from the current enrollment records; they are not
 stored in the database.
 
-Use the class-level filter to view one level or all levels, select a 1–5 year
-forecast horizon, and adjust the maximum class size from 1–100. The dashboard
-shows:
+Use the program, year level, and location filters to narrow series, select a
+1–5 year forecast horizon, and adjust the maximum class size from 1–100. The
+dashboard shows:
 
 - latest enrollment, year-over-year change, next-year forecast, and required sections;
 - a historical-versus-forecast enrollment trend;
@@ -217,7 +223,7 @@ The unified report endpoint can also be called directly:
 ```bash
 curl -X POST http://127.0.0.1:8000/api/reports/dashboard \
   -H "Content-Type: application/json" \
-  -d '{"horizon": 3, "max_class_size": 25, "class_levels": null}'
+  -d '{"horizon": 3, "max_class_size": 25, "programs": null, "year_levels": null, "locations": null}'
 ```
 
 Run all automated checks with:

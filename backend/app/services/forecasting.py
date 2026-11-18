@@ -9,19 +9,22 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from statsmodels.tsa.arima.model import ARIMA
 
+from app.domain.enrollment_dims import normalize_location
 from app.models.enrollment import EnrollmentRecord
 from app.schemas.forecast import (
-    ClassLevelForecast,
     ForecastPoint,
     ForecastRequest,
     ForecastResponse,
     HistoricalEnrollmentPoint,
+    SeriesForecast,
     SkippedForecastSeries,
 )
 
 ACADEMIC_YEAR_PATTERN = re.compile(r"^(\d{4})-(\d{4})$")
 MINIMUM_OBSERVATIONS = 2
 ARIMA_MINIMUM_OBSERVATIONS = 5
+
+SeriesKey = tuple[str, str, str]
 
 
 class ForecastingError(ValueError):
@@ -37,29 +40,38 @@ class ForecastingError(ValueError):
 
 class EnrollmentForecastService:
     def generate(self, db: Session, request: ForecastRequest) -> ForecastResponse:
-        history_by_level = self._load_history(db)
-        selected = self._select_class_levels(history_by_level, request.class_levels)
+        history_by_series = self._load_history(db)
+        selected = self._select_series(history_by_series, request)
 
-        forecasts: list[ClassLevelForecast] = []
+        forecasts: list[SeriesForecast] = []
         skipped: list[SkippedForecastSeries] = []
-        for class_level, history in selected:
+        for key, history in selected:
+            program, year_level, location = key
             try:
                 forecasts.append(
-                    self._forecast_class_level(
-                        class_level=class_level,
+                    self._forecast_series(
+                        program=program,
+                        year_level=year_level,
+                        location=location,
                         history=history,
                         horizon=request.horizon,
                     )
                 )
             except ForecastingError as exc:
                 skipped.append(
-                    SkippedForecastSeries(class_level=class_level, reason=exc.message)
+                    SkippedForecastSeries(
+                        program=program,
+                        year_level=year_level,
+                        location=location,
+                        reason=exc.message,
+                    )
                 )
 
         if not forecasts:
             message = (
-                "No class level has enough usable historical data to forecast."
-                if history_by_level
+                "No program/year level/location series has enough usable "
+                "historical data to forecast."
+                if history_by_series
                 else "No historical enrollment data is available."
             )
             raise ForecastingError(message, skipped)
@@ -74,54 +86,103 @@ class EnrollmentForecastService:
     def _load_history(
         self,
         db: Session,
-    ) -> dict[str, list[tuple[str, int]]]:
+    ) -> dict[SeriesKey, list[tuple[str, int]]]:
         rows = db.execute(
             select(
-                EnrollmentRecord.class_level,
+                EnrollmentRecord.program,
+                EnrollmentRecord.year_level,
+                EnrollmentRecord.location,
                 EnrollmentRecord.academic_year,
                 func.sum(EnrollmentRecord.enrollment_count).label("total"),
             )
             .group_by(
-                EnrollmentRecord.class_level,
+                EnrollmentRecord.program,
+                EnrollmentRecord.year_level,
+                EnrollmentRecord.location,
                 EnrollmentRecord.academic_year,
             )
             .order_by(
-                EnrollmentRecord.class_level,
+                EnrollmentRecord.program,
+                EnrollmentRecord.year_level,
+                EnrollmentRecord.location,
                 EnrollmentRecord.academic_year,
             )
         ).all()
 
-        grouped: dict[str, list[tuple[str, int]]] = defaultdict(list)
-        for class_level, academic_year, total in rows:
-            grouped[class_level].append((academic_year, int(total)))
+        grouped: dict[SeriesKey, list[tuple[str, int]]] = defaultdict(list)
+        for program, year_level, location, academic_year, total in rows:
+            grouped[(program, year_level, location)].append(
+                (academic_year, int(total))
+            )
         return dict(grouped)
 
-    def _select_class_levels(
+    def _select_series(
         self,
-        history_by_level: dict[str, list[tuple[str, int]]],
-        requested: list[str] | None,
-    ) -> list[tuple[str, list[tuple[str, int]]]]:
-        if requested is None:
-            return sorted(history_by_level.items(), key=lambda item: item[0].casefold())
+        history_by_series: dict[SeriesKey, list[tuple[str, int]]],
+        request: ForecastRequest,
+    ) -> list[tuple[SeriesKey, list[tuple[str, int]]]]:
+        programs = request.programs
+        year_levels = request.year_levels
+        locations = request.locations
 
-        canonical = {
-            class_level.casefold(): class_level for class_level in history_by_level
-        }
-        selected: list[tuple[str, list[tuple[str, int]]]] = []
-        for requested_level in requested:
-            class_level = canonical.get(requested_level.casefold())
-            if class_level is None:
-                selected.append((requested_level, []))
-            else:
-                selected.append((class_level, history_by_level[class_level]))
+        if programs is None and year_levels is None and locations is None:
+            return sorted(
+                history_by_series.items(),
+                key=lambda item: (
+                    item[0][0].casefold(),
+                    item[0][1].casefold(),
+                    item[0][2].casefold(),
+                ),
+            )
+
+        program_filter = (
+            {value.casefold() for value in programs} if programs else None
+        )
+        year_filter = (
+            {value.casefold() for value in year_levels} if year_levels else None
+        )
+        location_filter = (
+            {normalize_location(value).casefold() for value in locations}
+            if locations
+            else None
+        )
+
+        selected = [
+            (key, history)
+            for key, history in history_by_series.items()
+            if (program_filter is None or key[0].casefold() in program_filter)
+            and (year_filter is None or key[1].casefold() in year_filter)
+            and (location_filter is None or key[2].casefold() in location_filter)
+        ]
+        selected.sort(
+            key=lambda item: (
+                item[0][0].casefold(),
+                item[0][1].casefold(),
+                item[0][2].casefold(),
+            )
+        )
+
+        # Include explicitly requested combinations that have no history so they
+        # can be reported as skipped with a clear reason.
+        if programs and year_levels and locations:
+            existing = {key for key, _ in selected}
+            for program in programs:
+                for year_level in year_levels:
+                    for location in locations:
+                        key = (program, year_level, location)
+                        if key not in existing:
+                            selected.append((key, []))
+
         return selected
 
-    def _forecast_class_level(
+    def _forecast_series(
         self,
-        class_level: str,
+        program: str,
+        year_level: str,
+        location: str,
         history: list[tuple[str, int]],
         horizon: int,
-    ) -> ClassLevelForecast:
+    ) -> SeriesForecast:
         if not history:
             raise ForecastingError("No historical enrollment data was found.")
 
@@ -177,8 +238,10 @@ class EnrollmentForecastService:
             for _, academic_year, count in parsed
         ]
 
-        return ClassLevelForecast(
-            class_level=class_level,
+        return SeriesForecast(
+            program=program,
+            year_level=year_level,
+            location=location,
             method=method,
             observations_used=len(parsed),
             history=historical,

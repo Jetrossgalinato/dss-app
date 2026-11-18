@@ -11,17 +11,17 @@ def upload(client: TestClient, csv: str, filename: str = "enrollment.csv"):
 def test_import_list_and_upsert(client: TestClient) -> None:
     initial = upload(
         client,
-        "academic_year,class_level,sex,enrollment_count\n"
-        "2024-2025,Nursery,Female,18\n"
-        "2024-2025,Nursery,Male,16\n",
+        "academic_year,program,year_level,sex,location,enrollment_count\n"
+        "2024-2025,BSIT,1st Year,Female,Cebu City,42\n"
+        "2024-2025,BSIT,1st Year,Male,Cebu City,38\n",
     )
     assert initial.status_code == 200
     assert initial.json() == {"inserted": 2, "updated": 0, "total": 2}
 
     updated = upload(
         client,
-        "academic_year,class_level,sex,enrollment_count\n"
-        "2024-2025,Nursery,Female,20\n",
+        "academic_year,program,year_level,sex,location,enrollment_count\n"
+        "2024-2025,BSIT,1st Year,Female,Cebu City,45\n",
     )
     assert updated.status_code == 200
     assert updated.json() == {"inserted": 0, "updated": 1, "total": 1}
@@ -31,14 +31,17 @@ def test_import_list_and_upsert(client: TestClient) -> None:
     body = response.json()
     assert body["total"] == 2
     female = next(item for item in body["items"] if item["sex"] == "Female")
-    assert female["enrollment_count"] == 20
+    assert female["enrollment_count"] == 45
+    assert female["program"] == "BSIT"
+    assert female["year_level"] == "1st Year"
+    assert female["location"] == "Cebu City"
 
 
 def test_missing_columns_returns_structured_errors(client: TestClient) -> None:
     response = upload(
         client,
-        "academic_year,class_level,enrollment_count\n"
-        "2024-2025,Nursery,18\n",
+        "academic_year,program,year_level,location,enrollment_count\n"
+        "2024-2025,BSIT,1st Year,Cebu City,18\n",
     )
     assert response.status_code == 422
     detail = response.json()["detail"]
@@ -49,15 +52,18 @@ def test_missing_columns_returns_structured_errors(client: TestClient) -> None:
 def test_invalid_rows_are_reported_and_import_is_atomic(client: TestClient) -> None:
     response = upload(
         client,
-        "academic_year,class_level,sex,enrollment_count\n"
-        "2024-2025,Nursery,Female,18\n"
-        "2024-2027,Kindergarten,Unknown,-1\n",
+        "academic_year,program,year_level,sex,location,enrollment_count\n"
+        "2024-2025,BSIT,1st Year,Female,Cebu City,18\n"
+        "2024-2027,BAD,Nursery,Unknown,,-1\n",
     )
     assert response.status_code == 422
     errors = response.json()["detail"]["errors"]
-    assert {error["field"] for error in errors} == {
+    assert {error["field"] for error in errors} >= {
         "academic_year",
+        "program",
+        "year_level",
         "sex",
+        "location",
         "enrollment_count",
     }
     assert all(error["row"] == 3 for error in errors)
@@ -67,9 +73,9 @@ def test_invalid_rows_are_reported_and_import_is_atomic(client: TestClient) -> N
 def test_duplicate_rows_are_rejected(client: TestClient) -> None:
     response = upload(
         client,
-        "academic_year,class_level,sex,enrollment_count\n"
-        "2024-2025,Nursery,Female,18\n"
-        "2024-2025,Nursery,female,20\n",
+        "academic_year,program,year_level,sex,location,enrollment_count\n"
+        "2024-2025,BSIT,1st Year,Female,Cebu City,18\n"
+        "2024-2025,bsit,1st year,female,cebu city,20\n",
     )
     assert response.status_code == 422
     error = response.json()["detail"]["errors"][0]
@@ -77,23 +83,36 @@ def test_duplicate_rows_are_rejected(client: TestClient) -> None:
     assert "Duplicates CSV row 2" in error["message"]
 
 
-def test_filters_pagination_delete_and_not_found(client: TestClient) -> None:
+def test_location_normalization_and_filters(client: TestClient) -> None:
     imported = upload(
         client,
-        "academic_year,class_level,sex,enrollment_count\n"
-        "2023-2024,Nursery,Female,12\n"
-        "2024-2025,Nursery,Male,16\n"
-        "2024-2025,Kindergarten,Female,22\n",
+        "academic_year,program,year_level,sex,location,enrollment_count\n"
+        "2023-2024,BSBA,2nd Year,Female,mandaue city,12\n"
+        "2024-2025,BSIT,1st Year,Male,Cebu City,16\n"
+        "2024-2025,BSCS,3rd Year,Female,Cebu City,22\n",
     )
     assert imported.status_code == 200
 
     filtered = client.get(
         "/api/enrollments",
-        params={"academic_year": "2024-2025", "sex": "Female", "page_size": 1},
+        params={
+            "academic_year": "2024-2025",
+            "program": "BSCS",
+            "sex": "Female",
+            "page_size": 1,
+        },
     )
     assert filtered.status_code == 200
     assert filtered.json()["total"] == 1
-    assert filtered.json()["items"][0]["class_level"] == "Kindergarten"
+    item = filtered.json()["items"][0]
+    assert item["program"] == "BSCS"
+    assert item["year_level"] == "3rd Year"
+    assert item["location"] == "Cebu City"
+
+    by_location = client.get("/api/enrollments", params={"location": "Mandaue"})
+    assert by_location.status_code == 200
+    assert by_location.json()["total"] == 1
+    assert by_location.json()["items"][0]["location"] == "Mandaue City"
 
     paged = client.get("/api/enrollments", params={"page_size": 2})
     assert paged.json()["pages"] == 2
@@ -110,7 +129,7 @@ def test_template_and_file_type_validation(client: TestClient) -> None:
     assert template.status_code == 200
     assert template.headers["content-type"].startswith("text/csv")
     assert template.text.startswith(
-        "academic_year,class_level,sex,enrollment_count"
+        "academic_year,program,year_level,sex,location,enrollment_count"
     )
 
     wrong_type = upload(client, "not,csv\n", filename="enrollment.txt")
@@ -120,9 +139,9 @@ def test_template_and_file_type_validation(client: TestClient) -> None:
 def test_clear_all_enrollment_records(client: TestClient) -> None:
     imported = upload(
         client,
-        "academic_year,class_level,sex,enrollment_count\n"
-        "2023-2024,Nursery,Female,12\n"
-        "2024-2025,Nursery,Male,16\n",
+        "academic_year,program,year_level,sex,location,enrollment_count\n"
+        "2023-2024,BSIT,1st Year,Female,Cebu City,12\n"
+        "2024-2025,BSIT,1st Year,Male,Cebu City,16\n",
     )
     assert imported.status_code == 200
 

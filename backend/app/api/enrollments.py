@@ -24,9 +24,9 @@ from app.services.enrollment_import import (
 
 router = APIRouter(prefix="/api/enrollments", tags=["enrollments"])
 CSV_TEMPLATE = (
-    "academic_year,class_level,sex,enrollment_count\n"
-    "2024-2025,Nursery,Female,18\n"
-    "2024-2025,Nursery,Male,16\n"
+    "academic_year,program,year_level,sex,location,enrollment_count\n"
+    "2024-2025,BSIT,1st Year,Female,Cebu City,42\n"
+    "2024-2025,BSIT,1st Year,Male,Cebu City,38\n"
 )
 
 
@@ -71,15 +71,21 @@ def list_enrollments(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     academic_year: str | None = Query(default=None, max_length=9),
-    class_level: str | None = Query(default=None, max_length=100),
+    program: str | None = Query(default=None, max_length=10),
+    year_level: str | None = Query(default=None, max_length=20),
+    location: str | None = Query(default=None, max_length=150),
     sex: str | None = Query(default=None, pattern="^(Male|Female)$"),
     db: Session = Depends(get_db),
 ) -> EnrollmentListResponse:
     filters = []
     if academic_year:
         filters.append(EnrollmentRecord.academic_year == academic_year)
-    if class_level:
-        filters.append(EnrollmentRecord.class_level.ilike(f"%{class_level.strip()}%"))
+    if program:
+        filters.append(EnrollmentRecord.program == program.strip().upper())
+    if year_level:
+        filters.append(EnrollmentRecord.year_level.ilike(year_level.strip()))
+    if location:
+        filters.append(EnrollmentRecord.location.ilike(f"%{location.strip()}%"))
     if sex:
         filters.append(EnrollmentRecord.sex == sex)
 
@@ -91,7 +97,9 @@ def list_enrollments(
         .where(*filters)
         .order_by(
             EnrollmentRecord.academic_year.desc(),
-            EnrollmentRecord.class_level,
+            EnrollmentRecord.program,
+            EnrollmentRecord.year_level,
+            EnrollmentRecord.location,
             EnrollmentRecord.sex,
         )
         .offset((page - 1) * page_size)
