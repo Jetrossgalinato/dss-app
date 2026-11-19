@@ -9,9 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.enrollment import EnrollmentRecord
+from app.domain.enrollment_dims import ALLOWED_YEAR_LEVELS
 from app.schemas.enrollment import (
     BulkDeleteResponse,
     DeleteResponse,
+    EnrollmentFilterOptions,
     EnrollmentListResponse,
     ImportSummary,
 )
@@ -71,7 +73,7 @@ def list_enrollments(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     academic_year: str | None = Query(default=None, max_length=9),
-    program: str | None = Query(default=None, max_length=10),
+    program: str | None = Query(default=None, max_length=50),
     year_level: str | None = Query(default=None, max_length=20),
     location: str | None = Query(default=None, max_length=150),
     sex: str | None = Query(default=None, pattern="^(Male|Female)$"),
@@ -112,6 +114,47 @@ def list_enrollments(
         page=page,
         page_size=page_size,
         pages=math.ceil(total / page_size) if total else 0,
+    )
+
+
+@router.get("/filter-options", response_model=EnrollmentFilterOptions)
+def enrollment_filter_options(
+    db: Session = Depends(get_db),
+) -> EnrollmentFilterOptions:
+    programs = sorted(
+        {
+            value
+            for value in db.scalars(
+                select(EnrollmentRecord.program).distinct()
+            ).all()
+            if value
+        },
+        key=str.casefold,
+    )
+    present_year_levels = {
+        value
+        for value in db.scalars(
+            select(EnrollmentRecord.year_level).distinct()
+        ).all()
+        if value
+    }
+    year_levels = [
+        level for level in ALLOWED_YEAR_LEVELS if level in present_year_levels
+    ]
+    locations = sorted(
+        {
+            value
+            for value in db.scalars(
+                select(EnrollmentRecord.location).distinct()
+            ).all()
+            if value
+        },
+        key=str.casefold,
+    )
+    return EnrollmentFilterOptions(
+        programs=programs,
+        year_levels=year_levels,
+        locations=locations,
     )
 
 

@@ -125,11 +125,13 @@ academic_year,program,year_level,sex,location,enrollment_count
 2024-2025,BSIT,1st Year,Male,Cebu City,38
 ```
 
-Allowed programs are `BSBA`, `BSIT`, `BSCS`, and `BSIS`. Year levels are
-`1st Year` through `4th Year`. Location is required and is trimmed/title-cased
-on import. Academic years must be consecutive, sex must be `Male` or `Female`,
-and counts must be non-negative integers. Re-importing the same academic year,
-program, year level, sex, and location updates the existing count.
+Programs are free-form and uppercased on import (for example `bsn` becomes
+`BSN`). Year levels remain fixed as `1st Year` through `4th Year`. Location is
+required and is trimmed/title-cased on import. Academic years must be
+consecutive, sex must be `Male` or `Female`, and counts must be non-negative
+integers. Re-importing the same academic year, program, year level, sex, and
+location updates the existing count. Enrollment and Reports program filters
+list the distinct programs present in uploaded data.
 
 ## Enrollment forecasting
 

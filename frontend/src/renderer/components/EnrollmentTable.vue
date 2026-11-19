@@ -2,11 +2,10 @@
 import { onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
-import {
-  ALLOWED_PROGRAMS,
-  ALLOWED_YEAR_LEVELS,
-  type EnrollmentList,
-  type EnrollmentRecord,
+import type {
+  EnrollmentFilterOptions,
+  EnrollmentList,
+  EnrollmentRecord,
 } from '../../shared/enrollment'
 import ConfirmDeleteDialog from './ConfirmDeleteDialog.vue'
 
@@ -18,6 +17,11 @@ const records = ref<EnrollmentList>({
   page: 1,
   page_size: 10,
   pages: 0,
+})
+const filterOptions = ref<EnrollmentFilterOptions>({
+  programs: [],
+  year_levels: [],
+  locations: [],
 })
 const academicYear = ref('')
 const program = ref('')
@@ -35,9 +39,22 @@ function recordLabel(record: EnrollmentRecord): string {
   return `${record.academic_year} ${record.program} ${record.year_level} · ${record.location} (${record.sex})`
 }
 
+async function loadFilterOptions(): Promise<void> {
+  const result = await window.api.getEnrollmentFilterOptions()
+  if (!result.ok) return
+  filterOptions.value = result.data
+  if (program.value && !result.data.programs.includes(program.value)) {
+    program.value = ''
+  }
+  if (yearLevel.value && !result.data.year_levels.includes(yearLevel.value)) {
+    yearLevel.value = ''
+  }
+}
+
 async function load(page = 1): Promise<void> {
   loading.value = true
   error.value = ''
+  await loadFilterOptions()
   const result = await window.api.listEnrollments({
     page,
     pageSize: records.value.page_size,
@@ -187,14 +204,16 @@ watch(
           class="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
         >
           <option value="">All programs</option>
-          <option v-for="item in ALLOWED_PROGRAMS" :key="item" :value="item">{{ item }}</option>
+          <option v-for="item in filterOptions.programs" :key="item" :value="item">
+            {{ item }}
+          </option>
         </select>
         <select
           v-model="yearLevel"
           class="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
         >
           <option value="">All year levels</option>
-          <option v-for="item in ALLOWED_YEAR_LEVELS" :key="item" :value="item">
+          <option v-for="item in filterOptions.year_levels" :key="item" :value="item">
             {{ item }}
           </option>
         </select>

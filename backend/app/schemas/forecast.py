@@ -4,8 +4,8 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 from app.domain.enrollment_dims import (
-    ALLOWED_PROGRAMS,
     ALLOWED_YEAR_LEVELS,
+    MAX_PROGRAM_LENGTH,
     normalize_location,
     normalize_program,
     normalize_year_level,
@@ -29,7 +29,8 @@ class ForecastRequest(BaseModel):
             program = normalize_program(item)
             if program is None:
                 raise ValueError(
-                    "Program must be one of: " + ", ".join(ALLOWED_PROGRAMS) + "."
+                    "Programs cannot be empty and must be at most "
+                    f"{MAX_PROGRAM_LENGTH} characters."
                 )
             if program in seen:
                 raise ValueError("Programs must be unique.")
