@@ -9,6 +9,7 @@ import type {
   EnrollmentRecord,
 } from '../../shared/enrollment'
 import { getCached, invalidateAll, setCached } from '../utils/api-cache'
+import { prefetchDefaultDashboardReport } from '../utils/report-prefetch'
 import ConfirmDeleteDialog from './ConfirmDeleteDialog.vue'
 
 const props = defineProps<{ refreshKey: number }>()
@@ -56,43 +57,70 @@ function listFilters(page: number): EnrollmentFilters {
   }
 }
 
-async function loadFilterOptions(): Promise<void> {
-  const cached = getCached<EnrollmentFilterOptions>(FILTER_OPTIONS_ENDPOINT)
-  if (cached) {
-    filterOptions.value = cached
-  } else {
-    const result = await window.api.getEnrollmentFilterOptions()
-    if (!result.ok) return
-    setCached(FILTER_OPTIONS_ENDPOINT, null, result.data)
-    filterOptions.value = result.data
-  }
-  if (program.value && !filterOptions.value.programs.includes(program.value)) {
+function syncFilterSelections(options: EnrollmentFilterOptions): void {
+  filterOptions.value = options
+  if (program.value && !options.programs.includes(program.value)) {
     program.value = ''
   }
-  if (yearLevel.value && !filterOptions.value.year_levels.includes(yearLevel.value)) {
+  if (yearLevel.value && !options.year_levels.includes(yearLevel.value)) {
     yearLevel.value = ''
   }
 }
 
-async function load(page = 1): Promise<void> {
-  loading.value = true
-  error.value = ''
-  await loadFilterOptions()
-  const filters = listFilters(page)
-  const cached = getCached<EnrollmentList>(LIST_ENDPOINT, filters)
+async function loadFilterOptions(): Promise<boolean> {
+  const cached = getCached<EnrollmentFilterOptions>(FILTER_OPTIONS_ENDPOINT)
   if (cached) {
-    records.value = cached
-    loading.value = false
+    syncFilterSelections(cached)
+    return true
+  }
+  const result = await window.api.getEnrollmentFilterOptions()
+  if (!result.ok) return false
+  setCached(FILTER_OPTIONS_ENDPOINT, null, result.data)
+  syncFilterSelections(result.data)
+  return true
+}
+
+async function load(page = 1): Promise<void> {
+  error.value = ''
+  const filters = listFilters(page)
+  const cachedList = getCached<EnrollmentList>(LIST_ENDPOINT, filters)
+  const cachedFilters = getCached<EnrollmentFilterOptions>(FILTER_OPTIONS_ENDPOINT)
+
+  if (cachedFilters) {
+    syncFilterSelections(cachedFilters)
+  }
+  if (cachedList && cachedFilters) {
+    records.value = cachedList
+    if (cachedList.total > 0) {
+      void prefetchDefaultDashboardReport()
+    }
     return
   }
-  const result = await window.api.listEnrollments(filters)
+
+  loading.value = true
+  await loadFilterOptions()
+  const freshFilters = listFilters(page)
+  const listFromCache = getCached<EnrollmentList>(LIST_ENDPOINT, freshFilters)
+  if (listFromCache) {
+    records.value = listFromCache
+    loading.value = false
+    if (listFromCache.total > 0) {
+      void prefetchDefaultDashboardReport()
+    }
+    return
+  }
+
+  const result = await window.api.listEnrollments(freshFilters)
   loading.value = false
   if (!result.ok) {
     error.value = result.error.message
     return
   }
-  setCached(LIST_ENDPOINT, filters, result.data)
+  setCached(LIST_ENDPOINT, freshFilters, result.data)
   records.value = result.data
+  if (result.data.total > 0) {
+    void prefetchDefaultDashboardReport()
+  }
 }
 
 function requestDelete(record: EnrollmentRecord): void {
@@ -136,6 +164,7 @@ async function confirmDelete(): Promise<void> {
       ? records.value.page - 1
       : records.value.page
   await load(targetPage)
+  void prefetchDefaultDashboardReport()
 }
 
 function requestClearAll(): void {

@@ -4,6 +4,7 @@ import { toast } from 'vue-sonner'
 
 import type { ImportRowError } from '../../shared/enrollment'
 import { invalidateAll } from '../utils/api-cache'
+import { prefetchDefaultDashboardReport } from '../utils/report-prefetch'
 
 const emit = defineEmits<{ imported: [] }>()
 
@@ -67,6 +68,7 @@ async function upload(): Promise<void> {
     return
   }
   invalidateAll()
+  void prefetchDefaultDashboardReport()
   toast.success('CSV imported successfully', {
     description: `${result.data.inserted} inserted, ${result.data.updated} updated, ${result.data.total} processed.`,
     closeButton: true,

@@ -4,7 +4,12 @@ import { toast } from 'vue-sonner'
 
 import type { DashboardReportRequest, DashboardReportResponse } from '../../shared/reports'
 import { seriesLabel } from '../../shared/reports'
-import { getCached, setCached } from '../utils/api-cache'
+import {
+  DEFAULT_REPORT_HORIZON,
+  DEFAULT_REPORT_MAX_CLASS_SIZE,
+  getCachedDashboardReport,
+  setCachedDashboardReport,
+} from '../utils/report-prefetch'
 import DemographicBreakdownChart from '../components/reports/DemographicBreakdownChart.vue'
 import EnrollmentTrendChart from '../components/reports/EnrollmentTrendChart.vue'
 import ReportDataTables from '../components/reports/ReportDataTables.vue'
@@ -12,9 +17,8 @@ import ReportFilters from '../components/reports/ReportFilters.vue'
 import ReportSummaryCards from '../components/reports/ReportSummaryCards.vue'
 import SectionRecommendationChart from '../components/reports/SectionRecommendationChart.vue'
 
-const DEFAULT_HORIZON = 3
-const DEFAULT_MAX_CLASS_SIZE = 25
-const REPORT_CACHE_ENDPOINT = 'reports/dashboard'
+const DEFAULT_HORIZON = DEFAULT_REPORT_HORIZON
+const DEFAULT_MAX_CLASS_SIZE = DEFAULT_REPORT_MAX_CLASS_SIZE
 
 const report = ref<DashboardReportResponse | null>(null)
 const programs = ref<string[]>([])
@@ -26,6 +30,7 @@ const selectedLocation = ref('')
 const horizon = ref(DEFAULT_HORIZON)
 const maxClassSize = ref(DEFAULT_MAX_CLASS_SIZE)
 const loading = ref(true)
+const refreshing = ref(false)
 const errorMessage = ref('')
 
 function reportRequest(): DashboardReportRequest {
@@ -45,13 +50,25 @@ function applyReport(data: DashboardReportResponse): void {
   locations.value = data.available_locations
 }
 
+function hydrateFromCache(): boolean {
+  const cached = getCachedDashboardReport(reportRequest())
+  if (!cached) return false
+  applyReport(cached)
+  errorMessage.value = ''
+  loading.value = false
+  return true
+}
+
+hydrateFromCache()
+
 async function loadReport(showSuccess = false): Promise<void> {
   const request = reportRequest()
-  const cached = getCached<DashboardReportResponse>(REPORT_CACHE_ENDPOINT, request)
+  const cached = getCachedDashboardReport(request)
   if (cached) {
     applyReport(cached)
     errorMessage.value = ''
     loading.value = false
+    refreshing.value = false
     if (showSuccess) {
       toast.success('Report refreshed', {
         description: 'Showing cached report for these filters.',
@@ -61,14 +78,18 @@ async function loadReport(showSuccess = false): Promise<void> {
     return
   }
 
-  loading.value = true
+  const hasExisting = report.value !== null
+  if (hasExisting) {
+    refreshing.value = true
+  } else {
+    loading.value = true
+  }
   errorMessage.value = ''
-  report.value = null
 
   const result = await window.api.getDashboardReport(request)
 
   if (result.ok) {
-    setCached(REPORT_CACHE_ENDPOINT, request, result.data)
+    setCachedDashboardReport(request, result.data)
     applyReport(result.data)
     if (showSuccess) {
       toast.success('Report refreshed', {
@@ -76,15 +97,22 @@ async function loadReport(showSuccess = false): Promise<void> {
         class: 'dss-progress-toast',
       })
     }
-  } else {
+  } else if (!hasExisting) {
     errorMessage.value = result.error.message
     toast.error('Could not generate report', {
       description: result.error.message,
       class: 'dss-progress-toast dss-progress-toast--error',
       duration: 6000,
     })
+  } else {
+    toast.error('Could not refresh report', {
+      description: result.error.message,
+      class: 'dss-progress-toast dss-progress-toast--error',
+      duration: 6000,
+    })
   }
   loading.value = false
+  refreshing.value = false
 }
 
 function applyFilters(filters: {
@@ -124,7 +152,9 @@ function resetFilters(): void {
 }
 
 onMounted(() => {
-  void loadReport()
+  if (!report.value) {
+    void loadReport()
+  }
 })
 </script>
 
@@ -141,12 +171,17 @@ onMounted(() => {
       :max-class-size="maxClassSize"
       :default-horizon="DEFAULT_HORIZON"
       :default-max-class-size="DEFAULT_MAX_CLASS_SIZE"
-      :loading="loading"
+      :loading="loading || refreshing"
       @submit="applyFilters"
       @reset="resetFilters"
     />
 
-    <div v-if="loading" class="space-y-4" aria-live="polite" aria-label="Loading report">
+    <div
+      v-if="loading && !report"
+      class="space-y-4"
+      aria-live="polite"
+      aria-label="Loading report"
+    >
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div
           v-for="index in 4"
@@ -161,7 +196,7 @@ onMounted(() => {
     </div>
 
     <div
-      v-else-if="errorMessage"
+      v-else-if="errorMessage && !report"
       class="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800"
       role="alert"
     >
@@ -212,6 +247,7 @@ onMounted(() => {
       />
       <p class="text-right text-xs text-slate-400">
         Generated {{ new Date(report.generated_at).toLocaleString() }}
+        <span v-if="refreshing"> · Refreshing…</span>
       </p>
     </template>
   </div>

@@ -138,6 +138,20 @@ watch(
   async (open) => {
     if (!open) return
     error.value = ''
+    const request: SectionRecommendationRequest = {
+      horizon: horizon.value,
+      max_class_size: maxClassSize.value,
+      programs: null,
+      year_levels: null,
+      locations: null,
+    }
+    const cached = getCached<SectionRecommendationResponse>(
+      SECTIONS_CACHE_ENDPOINT,
+      request,
+    )
+    if (cached && !result.value) {
+      result.value = cached
+    }
     await nextTick()
     maxSizeInput.value?.focus()
   },
