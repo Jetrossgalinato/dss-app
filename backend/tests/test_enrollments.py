@@ -54,13 +54,12 @@ def test_invalid_rows_are_reported_and_import_is_atomic(client: TestClient) -> N
         client,
         "academic_year,program,year_level,sex,location,enrollment_count\n"
         "2024-2025,BSIT,1st Year,Female,Cebu City,18\n"
-        "2024-2027,BAD,Nursery,Unknown,,-1\n",
+        "2024-2027,BSN,Nursery,Unknown,,-1\n",
     )
     assert response.status_code == 422
     errors = response.json()["detail"]["errors"]
     assert {error["field"] for error in errors} >= {
         "academic_year",
-        "program",
         "year_level",
         "sex",
         "location",
@@ -68,6 +67,39 @@ def test_invalid_rows_are_reported_and_import_is_atomic(client: TestClient) -> N
     }
     assert all(error["row"] == 3 for error in errors)
     assert client.get("/api/enrollments").json()["total"] == 0
+
+
+def test_freeform_program_is_uppercased_and_filter_options_update(
+    client: TestClient,
+) -> None:
+    imported = upload(
+        client,
+        "academic_year,program,year_level,sex,location,enrollment_count\n"
+        "2023-2024,bsn,1st Year,Female,Cebu City,10\n"
+        "2024-2025,BSN,1st Year,Female,Cebu City,12\n"
+        "2024-2025,BSIT,2nd Year,Male,Mandaue City,20\n",
+    )
+    assert imported.status_code == 200
+
+    records = client.get("/api/enrollments", params={"program": "BSN"})
+    assert records.status_code == 200
+    assert records.json()["total"] == 2
+    assert all(item["program"] == "BSN" for item in records.json()["items"])
+
+    options = client.get("/api/enrollments/filter-options")
+    assert options.status_code == 200
+    body = options.json()
+    assert body["programs"] == ["BSIT", "BSN"]
+    assert body["year_levels"] == ["1st Year", "2nd Year"]
+    assert body["locations"] == ["Cebu City", "Mandaue City"]
+
+    blank_program = upload(
+        client,
+        "academic_year,program,year_level,sex,location,enrollment_count\n"
+        "2024-2025,,1st Year,Female,Cebu City,10\n",
+    )
+    assert blank_program.status_code == 422
+    assert blank_program.json()["detail"]["errors"][0]["field"] == "program"
 
 
 def test_duplicate_rows_are_rejected(client: TestClient) -> None:

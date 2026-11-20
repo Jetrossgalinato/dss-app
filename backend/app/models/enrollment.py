@@ -4,7 +4,7 @@ from sqlalchemy import CheckConstraint, DateTime, Index, Integer, String, Unique
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.domain.enrollment_dims import ALLOWED_PROGRAMS, ALLOWED_YEAR_LEVELS
+from app.domain.enrollment_dims import ALLOWED_YEAR_LEVELS, MAX_PROGRAM_LENGTH
 
 
 class EnrollmentRecord(Base):
@@ -21,12 +21,12 @@ class EnrollmentRecord(Base):
         CheckConstraint("enrollment_count >= 0", name="ck_enrollment_count_nonnegative"),
         CheckConstraint("sex IN ('Male', 'Female')", name="ck_enrollment_sex"),
         CheckConstraint(
-            "program IN ('" + "', '".join(ALLOWED_PROGRAMS) + "')",
-            name="ck_enrollment_program",
-        ),
-        CheckConstraint(
             "year_level IN ('" + "', '".join(ALLOWED_YEAR_LEVELS) + "')",
             name="ck_enrollment_year_level",
+        ),
+        CheckConstraint(
+            "length(trim(program)) > 0",
+            name="ck_enrollment_program_nonempty",
         ),
         CheckConstraint("length(trim(location)) > 0", name="ck_enrollment_location_nonempty"),
         Index(
@@ -40,7 +40,7 @@ class EnrollmentRecord(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     academic_year: Mapped[str] = mapped_column(String(9), nullable=False)
-    program: Mapped[str] = mapped_column(String(10), nullable=False)
+    program: Mapped[str] = mapped_column(String(MAX_PROGRAM_LENGTH), nullable=False)
     year_level: Mapped[str] = mapped_column(String(20), nullable=False)
     sex: Mapped[str] = mapped_column(String(6), nullable=False)
     location: Mapped[str] = mapped_column(String(150), nullable=False)

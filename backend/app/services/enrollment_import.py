@@ -7,8 +7,8 @@ from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
 from app.domain.enrollment_dims import (
-    ALLOWED_PROGRAMS,
     ALLOWED_YEAR_LEVELS,
+    MAX_PROGRAM_LENGTH,
     normalize_location,
     normalize_program,
     normalize_year_level,
@@ -140,9 +140,8 @@ def parse_enrollment_csv(file_bytes: bytes) -> list[ValidatedEnrollmentRow]:
                     row=csv_row,
                     field="program",
                     message=(
-                        "Program must be one of: "
-                        + ", ".join(ALLOWED_PROGRAMS)
-                        + "."
+                        "Program is required, cannot be blank, and must be "
+                        f"at most {MAX_PROGRAM_LENGTH} characters."
                     ),
                 )
             )

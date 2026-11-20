@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -6,6 +8,7 @@ from app.db.session import get_db
 from app.schemas.reports import DashboardReportRequest, DashboardReportResponse
 from app.services.forecasting import ForecastingError
 from app.services.reporting import DashboardReportService
+from app.services.response_cache import cache_key, dashboard_cache, get_or_set
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -15,8 +18,16 @@ def generate_dashboard_report(
     request: DashboardReportRequest,
     db: Session = Depends(get_db),
 ) -> DashboardReportResponse:
-    try:
+    key = cache_key(
+        "dashboard",
+        json.dumps(request.model_dump(mode="json"), sort_keys=True),
+    )
+
+    def compute() -> DashboardReportResponse:
         return DashboardReportService().generate(db, request)
+
+    try:
+        return get_or_set(dashboard_cache, key, compute)
     except ForecastingError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,

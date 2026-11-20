@@ -2,15 +2,20 @@
 import { onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
-import {
-  ALLOWED_PROGRAMS,
-  ALLOWED_YEAR_LEVELS,
-  type EnrollmentList,
-  type EnrollmentRecord,
+import type {
+  EnrollmentFilterOptions,
+  EnrollmentFilters,
+  EnrollmentList,
+  EnrollmentRecord,
 } from '../../shared/enrollment'
+import { getCached, invalidateAll, setCached } from '../utils/api-cache'
+import { prefetchDefaultDashboardReport } from '../utils/report-prefetch'
 import ConfirmDeleteDialog from './ConfirmDeleteDialog.vue'
 
 const props = defineProps<{ refreshKey: number }>()
+
+const FILTER_OPTIONS_ENDPOINT = 'enrollments/filter-options'
+const LIST_ENDPOINT = 'enrollments/list'
 
 const records = ref<EnrollmentList>({
   items: [],
@@ -18,6 +23,11 @@ const records = ref<EnrollmentList>({
   page: 1,
   page_size: 10,
   pages: 0,
+})
+const filterOptions = ref<EnrollmentFilterOptions>({
+  programs: [],
+  year_levels: [],
+  locations: [],
 })
 const academicYear = ref('')
 const program = ref('')
@@ -35,10 +45,8 @@ function recordLabel(record: EnrollmentRecord): string {
   return `${record.academic_year} ${record.program} ${record.year_level} · ${record.location} (${record.sex})`
 }
 
-async function load(page = 1): Promise<void> {
-  loading.value = true
-  error.value = ''
-  const result = await window.api.listEnrollments({
+function listFilters(page: number): EnrollmentFilters {
+  return {
     page,
     pageSize: records.value.page_size,
     academicYear: academicYear.value.trim(),
@@ -46,13 +54,73 @@ async function load(page = 1): Promise<void> {
     yearLevel: yearLevel.value.trim(),
     location: location.value.trim(),
     sex: sex.value,
-  })
+  }
+}
+
+function syncFilterSelections(options: EnrollmentFilterOptions): void {
+  filterOptions.value = options
+  if (program.value && !options.programs.includes(program.value)) {
+    program.value = ''
+  }
+  if (yearLevel.value && !options.year_levels.includes(yearLevel.value)) {
+    yearLevel.value = ''
+  }
+}
+
+async function loadFilterOptions(): Promise<boolean> {
+  const cached = getCached<EnrollmentFilterOptions>(FILTER_OPTIONS_ENDPOINT)
+  if (cached) {
+    syncFilterSelections(cached)
+    return true
+  }
+  const result = await window.api.getEnrollmentFilterOptions()
+  if (!result.ok) return false
+  setCached(FILTER_OPTIONS_ENDPOINT, null, result.data)
+  syncFilterSelections(result.data)
+  return true
+}
+
+async function load(page = 1): Promise<void> {
+  error.value = ''
+  const filters = listFilters(page)
+  const cachedList = getCached<EnrollmentList>(LIST_ENDPOINT, filters)
+  const cachedFilters = getCached<EnrollmentFilterOptions>(FILTER_OPTIONS_ENDPOINT)
+
+  if (cachedFilters) {
+    syncFilterSelections(cachedFilters)
+  }
+  if (cachedList && cachedFilters) {
+    records.value = cachedList
+    if (cachedList.total > 0) {
+      void prefetchDefaultDashboardReport()
+    }
+    return
+  }
+
+  loading.value = true
+  await loadFilterOptions()
+  const freshFilters = listFilters(page)
+  const listFromCache = getCached<EnrollmentList>(LIST_ENDPOINT, freshFilters)
+  if (listFromCache) {
+    records.value = listFromCache
+    loading.value = false
+    if (listFromCache.total > 0) {
+      void prefetchDefaultDashboardReport()
+    }
+    return
+  }
+
+  const result = await window.api.listEnrollments(freshFilters)
   loading.value = false
   if (!result.ok) {
     error.value = result.error.message
     return
   }
+  setCached(LIST_ENDPOINT, freshFilters, result.data)
   records.value = result.data
+  if (result.data.total > 0) {
+    void prefetchDefaultDashboardReport()
+  }
 }
 
 function requestDelete(record: EnrollmentRecord): void {
@@ -83,6 +151,7 @@ async function confirmDelete(): Promise<void> {
     return
   }
   pendingDelete.value = null
+  invalidateAll()
   toast.success('Enrollment record deleted', {
     description: `${recordLabel(record)} was removed.`,
     closeButton: true,
@@ -95,6 +164,7 @@ async function confirmDelete(): Promise<void> {
       ? records.value.page - 1
       : records.value.page
   await load(targetPage)
+  void prefetchDefaultDashboardReport()
 }
 
 function requestClearAll(): void {
@@ -123,6 +193,7 @@ async function confirmClearAll(): Promise<void> {
     return
   }
 
+  invalidateAll()
   toast.success('Historical records cleared', {
     description: `${result.data.deleted_count} enrollment records were permanently removed.`,
     closeButton: true,
@@ -187,14 +258,16 @@ watch(
           class="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
         >
           <option value="">All programs</option>
-          <option v-for="item in ALLOWED_PROGRAMS" :key="item" :value="item">{{ item }}</option>
+          <option v-for="item in filterOptions.programs" :key="item" :value="item">
+            {{ item }}
+          </option>
         </select>
         <select
           v-model="yearLevel"
           class="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
         >
           <option value="">All year levels</option>
-          <option v-for="item in ALLOWED_YEAR_LEVELS" :key="item" :value="item">
+          <option v-for="item in filterOptions.year_levels" :key="item" :value="item">
             {{ item }}
           </option>
         </select>

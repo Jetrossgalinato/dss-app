@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { toast } from 'vue-sonner'
 
 import type { ImportRowError } from '../../shared/enrollment'
+import { invalidateAll } from '../utils/api-cache'
+import { prefetchDefaultDashboardReport } from '../utils/report-prefetch'
 
 const emit = defineEmits<{ imported: [] }>()
 
@@ -65,6 +67,8 @@ async function upload(): Promise<void> {
     })
     return
   }
+  invalidateAll()
+  void prefetchDefaultDashboardReport()
   toast.success('CSV imported successfully', {
     description: `${result.data.inserted} inserted, ${result.data.updated} updated, ${result.data.total} processed.`,
     closeButton: true,
@@ -110,7 +114,8 @@ async function downloadTemplate(): Promise<void> {
         <h2 class="text-lg font-semibold text-slate-900">Import enrollment data</h2>
         <p class="mt-1 text-sm text-slate-500">
           Required columns: academic_year, program, year_level, sex, location,
-          enrollment_count. Preschool CSVs are no longer valid.
+          enrollment_count. Programs are free-form (uppercased on import). Year
+          levels must be 1st–4th Year. Preschool CSVs are no longer valid.
         </p>
       </div>
       <button

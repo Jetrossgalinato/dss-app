@@ -193,6 +193,26 @@ def test_location_filter_reports_insufficient_and_missing_series(
     ]
 
 
+def test_forecast_accepts_freeform_program_filter(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    seed_record(db_session, "2022-2023", "BSN", "1st Year", "Cebu City", "Female", 10)
+    seed_record(db_session, "2023-2024", "BSN", "1st Year", "Cebu City", "Female", 12)
+    seed_record(db_session, "2022-2023", "BSIT", "1st Year", "Cebu City", "Male", 20)
+    seed_record(db_session, "2023-2024", "BSIT", "1st Year", "Cebu City", "Male", 22)
+    db_session.commit()
+
+    response = client.post(
+        "/api/forecasts/generate",
+        json={"horizon": 1, "programs": ["bsn"]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["series"]) == 1
+    assert body["series"][0]["program"] == "BSN"
+
+
 def test_empty_data_insufficient_data_and_request_validation(
     client: TestClient,
     db_session: Session,

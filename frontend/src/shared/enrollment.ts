@@ -2,7 +2,6 @@ export type HealthResult =
   | { ok: true; status: string }
   | { ok: false; error: string }
 
-export const ALLOWED_PROGRAMS = ['BSBA', 'BSIT', 'BSCS', 'BSIS'] as const
 export const ALLOWED_YEAR_LEVELS = [
   '1st Year',
   '2nd Year',
@@ -10,7 +9,6 @@ export const ALLOWED_YEAR_LEVELS = [
   '4th Year',
 ] as const
 
-export type Program = (typeof ALLOWED_PROGRAMS)[number]
 export type YearLevel = (typeof ALLOWED_YEAR_LEVELS)[number]
 
 export interface EnrollmentRecord {
@@ -43,6 +41,12 @@ export interface EnrollmentList {
   pages: number
 }
 
+export interface EnrollmentFilterOptions {
+  programs: string[]
+  year_levels: string[]
+  locations: string[]
+}
+
 export interface ImportRowError {
   row: number | null
   field: string | null
@@ -69,6 +73,7 @@ export interface EnrollmentApi {
     bytes: Uint8Array,
   ) => Promise<ApiResult<ImportSummary>>
   listEnrollments: (filters: EnrollmentFilters) => Promise<ApiResult<EnrollmentList>>
+  getEnrollmentFilterOptions: () => Promise<ApiResult<EnrollmentFilterOptions>>
   deleteEnrollment: (id: number) => Promise<ApiResult<{ deleted: boolean; id: number }>>
   clearEnrollments: () => Promise<ApiResult<{ deleted: boolean; deleted_count: number }>>
   getEnrollmentTemplate: () => Promise<ApiResult<string>>

@@ -43,7 +43,9 @@ class DashboardSummary(BaseModel):
     latest_enrollment: int = Field(ge=0)
     year_over_year_change_percent: float | None
     next_academic_year: str
-    next_year_forecast: int = Field(ge=0)
+    total_forecast: int = Field(ge=0)
+    forecast_horizon_start: str
+    forecast_horizon_end: str
     next_year_recommended_sections: int = Field(ge=0)
 
 

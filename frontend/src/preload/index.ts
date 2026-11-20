@@ -117,6 +117,15 @@ const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
       return { ok: false, error: connectionError(error) }
     }
   },
+  getEnrollmentFilterOptions: async () => {
+    try {
+      return await parseResponse(
+        await backendFetch('/api/enrollments/filter-options'),
+      )
+    } catch (error) {
+      return { ok: false, error: connectionError(error) }
+    }
+  },
   deleteEnrollment: async (id) => {
     try {
       return await parseResponse(
