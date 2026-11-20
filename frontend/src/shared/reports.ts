@@ -52,7 +52,9 @@ export interface DashboardSummary {
   latest_enrollment: number
   year_over_year_change_percent: number | null
   next_academic_year: string
-  next_year_forecast: number
+  total_forecast: number
+  forecast_horizon_start: string
+  forecast_horizon_end: string
   next_year_recommended_sections: number
 }
 

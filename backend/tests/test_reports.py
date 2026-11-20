@@ -88,7 +88,9 @@ def test_dashboard_composes_history_forecast_sections_and_summary(
         "latest_enrollment": 26,
         "year_over_year_change_percent": 18.18,
         "next_academic_year": "2024-2025",
-        "next_year_forecast": 29,
+        "total_forecast": 61,
+        "forecast_horizon_start": "2024-2025",
+        "forecast_horizon_end": "2025-2026",
         "next_year_recommended_sections": 3,
     }
     series = body["series"][0]

@@ -16,6 +16,11 @@ const changeClass = computed(() => {
   if (change === null || change === 0) return 'text-slate-600'
   return change > 0 ? 'text-emerald-700' : 'text-rose-700'
 })
+
+const forecastHorizonLabel = computed(() => {
+  const { forecast_horizon_start: start, forecast_horizon_end: end } = props.summary
+  return start === end ? start : `${start} – ${end}`
+})
 </script>
 
 <template>
@@ -38,12 +43,12 @@ const changeClass = computed(() => {
     </article>
     <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">
-        Next-year forecast
+        Total forecast
       </p>
       <p class="mt-2 text-3xl font-bold text-blue-700">
-        {{ summary.next_year_forecast.toLocaleString() }}
+        {{ summary.total_forecast.toLocaleString() }}
       </p>
-      <p class="mt-1 text-sm text-slate-500">{{ summary.next_academic_year }}</p>
+      <p class="mt-1 text-sm text-slate-500">{{ forecastHorizonLabel }}</p>
     </article>
     <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">

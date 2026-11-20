@@ -211,15 +211,23 @@ class DashboardReportService:
             for report_series in series
             if report_series.projections
         ]
+        all_projections = [
+            point
+            for report_series in series
+            for point in report_series.projections
+        ]
+        projection_years = sorted({point.academic_year for point in all_projections})
         next_academic_year = first_projections[0].academic_year
         return DashboardSummary(
             latest_academic_year=latest_year,
             latest_enrollment=latest_enrollment,
             year_over_year_change_percent=change,
             next_academic_year=next_academic_year,
-            next_year_forecast=sum(
-                point.predicted_enrollment for point in first_projections
+            total_forecast=sum(
+                point.predicted_enrollment for point in all_projections
             ),
+            forecast_horizon_start=projection_years[0],
+            forecast_horizon_end=projection_years[-1],
             next_year_recommended_sections=sum(
                 point.recommended_sections for point in first_projections
             ),

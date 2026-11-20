@@ -214,7 +214,7 @@ Use the program, year level, and location filters to narrow series, select a
 1–5 year forecast horizon, and adjust the maximum class size from 1–100. The
 dashboard shows:
 
-- latest enrollment, year-over-year change, next-year forecast, and required sections;
+- latest enrollment, year-over-year change, total forecast across the horizon, and next-year required sections;
 - a historical-versus-forecast enrollment trend;
 - stacked Male/Female enrollment totals;
 - projected enrollment and recommended sections; and
