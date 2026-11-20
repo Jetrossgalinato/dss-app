@@ -273,7 +273,77 @@ watch(
               {{ error }}
             </div>
 
-            <template v-if="result">
+            <div
+              v-if="loading"
+              class="mt-5 space-y-5"
+              aria-busy="true"
+              aria-live="polite"
+              aria-label="Generating section plan"
+            >
+              <div class="grid gap-3 sm:grid-cols-3">
+                <div
+                  v-for="index in 3"
+                  :key="`card-skel-${index}`"
+                  class="rounded-xl border border-slate-200 bg-white p-4"
+                >
+                  <div class="h-3 w-24 animate-pulse rounded bg-slate-200" />
+                  <div class="mt-3 h-8 w-16 animate-pulse rounded bg-slate-200" />
+                </div>
+              </div>
+
+              <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div class="overflow-x-auto">
+                  <table class="w-full min-w-[920px] text-left text-sm">
+                    <thead class="bg-slate-100 text-xs tracking-wide text-slate-600 uppercase">
+                      <tr>
+                        <th class="px-4 py-3 font-semibold">Program</th>
+                        <th class="px-4 py-3 font-semibold">Year level</th>
+                        <th class="px-4 py-3 font-semibold">Location</th>
+                        <th class="px-4 py-3 font-semibold">Academic year</th>
+                        <th class="px-4 py-3 text-right font-semibold">Forecast</th>
+                        <th class="px-4 py-3 text-right font-semibold">Maximum</th>
+                        <th class="px-4 py-3 text-right font-semibold">Sections</th>
+                        <th class="px-4 py-3 text-right font-semibold">Planned size</th>
+                        <th class="px-4 py-3 font-semibold">Method</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                      <tr v-for="row in 8" :key="`row-skel-${row}`">
+                        <td class="px-4 py-3">
+                          <div class="h-4 w-14 animate-pulse rounded bg-slate-200" />
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="h-4 w-16 animate-pulse rounded bg-slate-200" />
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="h-4 w-20 animate-pulse rounded bg-slate-200" />
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="ml-auto h-4 w-10 animate-pulse rounded bg-slate-200" />
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="ml-auto h-4 w-8 animate-pulse rounded bg-slate-200" />
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="ml-auto h-4 w-8 animate-pulse rounded bg-slate-200" />
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="ml-auto h-4 w-10 animate-pulse rounded bg-slate-200" />
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="h-6 w-14 animate-pulse rounded-md bg-slate-200" />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <template v-else-if="result">
               <div class="mt-5 grid gap-3 sm:grid-cols-3">
                 <div class="rounded-xl border border-slate-200 bg-white p-4">
                   <p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">
@@ -372,7 +442,7 @@ watch(
             </template>
 
             <div
-              v-else-if="!loading && !error"
+              v-else-if="!error"
               class="mt-5 rounded-xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center"
             >
               <p class="font-medium text-slate-700">No plan generated yet</p>
