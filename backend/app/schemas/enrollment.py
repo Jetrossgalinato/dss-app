@@ -50,3 +50,9 @@ class DeleteResponse(BaseModel):
 class BulkDeleteResponse(BaseModel):
     deleted: bool
     deleted_count: int = Field(ge=0)
+
+
+class EnrollmentFilterOptions(BaseModel):
+    programs: list[str]
+    year_levels: list[str]
+    locations: list[str]

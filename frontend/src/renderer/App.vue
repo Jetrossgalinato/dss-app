@@ -68,7 +68,11 @@ onMounted(async () => {
         <h2 class="text-2xl font-semibold tracking-tight text-slate-900">{{ pageTitle }}</h2>
         <p class="mt-1 text-sm text-slate-600">{{ pageDescription }}</p>
       </div>
-      <RouterView />
+      <RouterView v-slot="{ Component }">
+        <KeepAlive>
+          <component :is="Component" />
+        </KeepAlive>
+      </RouterView>
     </main>
   </div>
 </template>
