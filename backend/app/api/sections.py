@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -8,6 +10,7 @@ from app.schemas.sections import (
     SectionRecommendationResponse,
 )
 from app.services.forecasting import ForecastingError
+from app.services.response_cache import cache_key, get_or_set, sections_cache
 from app.services.section_planning import SectionPlanningService
 
 router = APIRouter(prefix="/api/sections", tags=["sections"])
@@ -18,8 +21,16 @@ def generate_section_recommendations(
     request: SectionRecommendationRequest,
     db: Session = Depends(get_db),
 ) -> SectionRecommendationResponse:
-    try:
+    key = cache_key(
+        "sections",
+        json.dumps(request.model_dump(mode="json"), sort_keys=True),
+    )
+
+    def compute() -> SectionRecommendationResponse:
         return SectionPlanningService().generate(db, request)
+
+    try:
+        return get_or_set(sections_cache, key, compute)
     except ForecastingError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,

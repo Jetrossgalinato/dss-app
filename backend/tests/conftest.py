@@ -7,6 +7,12 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.services.response_cache import reset_for_tests
+
+
+@pytest.fixture(autouse=True)
+def clear_response_caches() -> None:
+    reset_for_tests()
 
 
 @pytest.fixture()

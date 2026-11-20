@@ -2,8 +2,9 @@
 import { onMounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 
-import type { DashboardReportResponse } from '../../shared/reports'
+import type { DashboardReportRequest, DashboardReportResponse } from '../../shared/reports'
 import { seriesLabel } from '../../shared/reports'
+import { getCached, setCached } from '../utils/api-cache'
 import DemographicBreakdownChart from '../components/reports/DemographicBreakdownChart.vue'
 import EnrollmentTrendChart from '../components/reports/EnrollmentTrendChart.vue'
 import ReportDataTables from '../components/reports/ReportDataTables.vue'
@@ -13,6 +14,7 @@ import SectionRecommendationChart from '../components/reports/SectionRecommendat
 
 const DEFAULT_HORIZON = 3
 const DEFAULT_MAX_CLASS_SIZE = 25
+const REPORT_CACHE_ENDPOINT = 'reports/dashboard'
 
 const report = ref<DashboardReportResponse | null>(null)
 const programs = ref<string[]>([])
@@ -26,24 +28,48 @@ const maxClassSize = ref(DEFAULT_MAX_CLASS_SIZE)
 const loading = ref(true)
 const errorMessage = ref('')
 
-async function loadReport(showSuccess = false): Promise<void> {
-  loading.value = true
-  errorMessage.value = ''
-  report.value = null
-
-  const result = await window.api.getDashboardReport({
+function reportRequest(): DashboardReportRequest {
+  return {
     horizon: horizon.value,
     max_class_size: maxClassSize.value,
     programs: selectedProgram.value ? [selectedProgram.value] : null,
     year_levels: selectedYearLevel.value ? [selectedYearLevel.value] : null,
     locations: selectedLocation.value ? [selectedLocation.value] : null,
-  })
+  }
+}
+
+function applyReport(data: DashboardReportResponse): void {
+  report.value = data
+  programs.value = data.available_programs
+  yearLevels.value = data.available_year_levels
+  locations.value = data.available_locations
+}
+
+async function loadReport(showSuccess = false): Promise<void> {
+  const request = reportRequest()
+  const cached = getCached<DashboardReportResponse>(REPORT_CACHE_ENDPOINT, request)
+  if (cached) {
+    applyReport(cached)
+    errorMessage.value = ''
+    loading.value = false
+    if (showSuccess) {
+      toast.success('Report refreshed', {
+        description: 'Showing cached report for these filters.',
+        class: 'dss-progress-toast',
+      })
+    }
+    return
+  }
+
+  loading.value = true
+  errorMessage.value = ''
+  report.value = null
+
+  const result = await window.api.getDashboardReport(request)
 
   if (result.ok) {
-    report.value = result.data
-    programs.value = result.data.available_programs
-    yearLevels.value = result.data.available_year_levels
-    locations.value = result.data.available_locations
+    setCached(REPORT_CACHE_ENDPOINT, request, result.data)
+    applyReport(result.data)
     if (showSuccess) {
       toast.success('Report refreshed', {
         description: 'Charts and tables now use the latest report data.',

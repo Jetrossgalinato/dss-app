@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { toast } from 'vue-sonner'
 
 import type { ImportRowError } from '../../shared/enrollment'
+import { invalidateAll } from '../utils/api-cache'
 
 const emit = defineEmits<{ imported: [] }>()
 
@@ -65,6 +66,7 @@ async function upload(): Promise<void> {
     })
     return
   }
+  invalidateAll()
   toast.success('CSV imported successfully', {
     description: `${result.data.inserted} inserted, ${result.data.updated} updated, ${result.data.total} processed.`,
     closeButton: true,

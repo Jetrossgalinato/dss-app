@@ -4,11 +4,15 @@ import { toast } from 'vue-sonner'
 
 import type {
   SectionRecommendation,
+  SectionRecommendationRequest,
   SectionRecommendationResponse,
 } from '../../shared/section-planning'
+import { getCached, setCached } from '../utils/api-cache'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
+
+const SECTIONS_CACHE_ENDPOINT = 'sections/recommendations'
 
 const maxClassSize = ref(25)
 const horizon = ref(3)
@@ -73,14 +77,35 @@ async function generate(): Promise<void> {
     return
   }
 
-  loading.value = true
-  const response = await window.api.getSectionRecommendations({
+  const request: SectionRecommendationRequest = {
     horizon: horizon.value,
     max_class_size: maxClassSize.value,
     programs: null,
     year_levels: null,
     locations: null,
-  })
+  }
+
+  const cached = getCached<SectionRecommendationResponse>(
+    SECTIONS_CACHE_ENDPOINT,
+    request,
+  )
+  if (cached) {
+    result.value = cached
+    const recommendedSections = cached.series
+      .flatMap((series) => series.recommendations)
+      .reduce((total, recommendation) => total + recommendation.recommended_sections, 0)
+    toast.success('Section plan generated', {
+      description: `${cached.series.length} series · ${recommendedSections} recommended sections (cached).`,
+      closeButton: true,
+      closeButtonPosition: 'top-right',
+      duration: 5000,
+      class: 'dss-progress-toast',
+    })
+    return
+  }
+
+  loading.value = true
+  const response = await window.api.getSectionRecommendations(request)
   loading.value = false
 
   if (!response.ok) {
@@ -94,6 +119,7 @@ async function generate(): Promise<void> {
     })
     return
   }
+  setCached(SECTIONS_CACHE_ENDPOINT, request, response.data)
   result.value = response.data
   const recommendedSections = response.data.series
     .flatMap((series) => series.recommendations)

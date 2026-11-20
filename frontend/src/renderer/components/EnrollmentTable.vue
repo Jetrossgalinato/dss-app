@@ -4,12 +4,17 @@ import { toast } from 'vue-sonner'
 
 import type {
   EnrollmentFilterOptions,
+  EnrollmentFilters,
   EnrollmentList,
   EnrollmentRecord,
 } from '../../shared/enrollment'
+import { getCached, invalidateAll, setCached } from '../utils/api-cache'
 import ConfirmDeleteDialog from './ConfirmDeleteDialog.vue'
 
 const props = defineProps<{ refreshKey: number }>()
+
+const FILTER_OPTIONS_ENDPOINT = 'enrollments/filter-options'
+const LIST_ENDPOINT = 'enrollments/list'
 
 const records = ref<EnrollmentList>({
   items: [],
@@ -39,14 +44,32 @@ function recordLabel(record: EnrollmentRecord): string {
   return `${record.academic_year} ${record.program} ${record.year_level} · ${record.location} (${record.sex})`
 }
 
+function listFilters(page: number): EnrollmentFilters {
+  return {
+    page,
+    pageSize: records.value.page_size,
+    academicYear: academicYear.value.trim(),
+    program: program.value.trim(),
+    yearLevel: yearLevel.value.trim(),
+    location: location.value.trim(),
+    sex: sex.value,
+  }
+}
+
 async function loadFilterOptions(): Promise<void> {
-  const result = await window.api.getEnrollmentFilterOptions()
-  if (!result.ok) return
-  filterOptions.value = result.data
-  if (program.value && !result.data.programs.includes(program.value)) {
+  const cached = getCached<EnrollmentFilterOptions>(FILTER_OPTIONS_ENDPOINT)
+  if (cached) {
+    filterOptions.value = cached
+  } else {
+    const result = await window.api.getEnrollmentFilterOptions()
+    if (!result.ok) return
+    setCached(FILTER_OPTIONS_ENDPOINT, null, result.data)
+    filterOptions.value = result.data
+  }
+  if (program.value && !filterOptions.value.programs.includes(program.value)) {
     program.value = ''
   }
-  if (yearLevel.value && !result.data.year_levels.includes(yearLevel.value)) {
+  if (yearLevel.value && !filterOptions.value.year_levels.includes(yearLevel.value)) {
     yearLevel.value = ''
   }
 }
@@ -55,20 +78,20 @@ async function load(page = 1): Promise<void> {
   loading.value = true
   error.value = ''
   await loadFilterOptions()
-  const result = await window.api.listEnrollments({
-    page,
-    pageSize: records.value.page_size,
-    academicYear: academicYear.value.trim(),
-    program: program.value.trim(),
-    yearLevel: yearLevel.value.trim(),
-    location: location.value.trim(),
-    sex: sex.value,
-  })
+  const filters = listFilters(page)
+  const cached = getCached<EnrollmentList>(LIST_ENDPOINT, filters)
+  if (cached) {
+    records.value = cached
+    loading.value = false
+    return
+  }
+  const result = await window.api.listEnrollments(filters)
   loading.value = false
   if (!result.ok) {
     error.value = result.error.message
     return
   }
+  setCached(LIST_ENDPOINT, filters, result.data)
   records.value = result.data
 }
 
@@ -100,6 +123,7 @@ async function confirmDelete(): Promise<void> {
     return
   }
   pendingDelete.value = null
+  invalidateAll()
   toast.success('Enrollment record deleted', {
     description: `${recordLabel(record)} was removed.`,
     closeButton: true,
@@ -140,6 +164,7 @@ async function confirmClearAll(): Promise<void> {
     return
   }
 
+  invalidateAll()
   toast.success('Historical records cleared', {
     description: `${result.data.deleted_count} enrollment records were permanently removed.`,
     closeButton: true,
