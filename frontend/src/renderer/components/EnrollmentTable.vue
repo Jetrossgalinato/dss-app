@@ -10,6 +10,7 @@ import type {
 } from '../../shared/enrollment'
 import { getCached, invalidateAll, setCached } from '../utils/api-cache'
 import { prefetchDefaultDashboardReport } from '../utils/report-prefetch'
+import AddEnrollmentDialog from './AddEnrollmentDialog.vue'
 import ConfirmDeleteDialog from './ConfirmDeleteDialog.vue'
 
 const props = defineProps<{ refreshKey: number }>()
@@ -40,6 +41,7 @@ const deletingId = ref<number | null>(null)
 const pendingDelete = ref<EnrollmentRecord | null>(null)
 const clearDialogOpen = ref(false)
 const clearing = ref(false)
+const addDialogOpen = ref(false)
 
 function recordLabel(record: EnrollmentRecord): string {
   return `${record.academic_year} ${record.program} ${record.year_level} · ${record.location} (${record.sex})`
@@ -213,6 +215,22 @@ function clearFilters(): void {
   void load(1)
 }
 
+async function handleRecordSaved(payload: {
+  created: boolean
+  label: string
+}): Promise<void> {
+  invalidateAll()
+  toast.success(payload.created ? 'Record added' : 'Record updated', {
+    description: payload.label,
+    closeButton: true,
+    closeButtonPosition: 'top-right',
+    duration: 5000,
+    class: 'dss-progress-toast',
+  })
+  await load(1)
+  void prefetchDefaultDashboardReport()
+}
+
 onMounted(() => load())
 watch(
   () => props.refreshKey,
@@ -228,23 +246,41 @@ watch(
           <h2 class="text-lg font-semibold text-slate-900">Historical records</h2>
           <p class="mt-1 text-sm text-slate-500">{{ records.total }} demographic groups</p>
         </div>
-        <button
-          class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 focus:ring-2 focus:ring-rose-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-          type="button"
-          :disabled="loading || clearing || deletingId !== null || records.total === 0"
-          @click="requestClearAll"
-        >
-          <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M9 3h6m-9 4h12m-10 0 .7 12h6.6L16 7M10 10v6m4-6v6"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-          Delete Records
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:ring-2 focus:ring-slate-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+            type="button"
+            :disabled="loading || clearing || deletingId !== null"
+            @click="addDialogOpen = true"
+          >
+            <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 5v14M5 12h14"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
+            Add record
+          </button>
+          <button
+            class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 focus:ring-2 focus:ring-rose-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+            type="button"
+            :disabled="loading || clearing || deletingId !== null || records.total === 0"
+            @click="requestClearAll"
+          >
+            <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M9 3h6m-9 4h12m-10 0 .7 12h6.6L16 7M10 10v6m4-6v6"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            Delete Records
+          </button>
+        </div>
       </div>
 
       <form class="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6" @submit.prevent="load(1)">
@@ -414,6 +450,12 @@ watch(
       </div>
     </div>
   </section>
+
+  <AddEnrollmentDialog
+    :open="addDialogOpen"
+    @close="addDialogOpen = false"
+    @saved="handleRecordSaved"
+  />
 
   <ConfirmDeleteDialog
     :open="pendingDelete !== null"

@@ -59,6 +59,117 @@ def _normalized_header(value: object) -> str:
     return str(value).lstrip("\ufeff").strip().lower().replace(" ", "_")
 
 
+def validate_enrollment_fields(
+    *,
+    academic_year: str,
+    program: str,
+    year_level: str,
+    sex: str,
+    location: str,
+    enrollment_count: int | str,
+    row: int | None = None,
+) -> ValidatedEnrollmentRow:
+    """Validate one enrollment row using the same rules as CSV import."""
+    errors: list[ImportRowError] = []
+
+    academic_year_value = str(academic_year).strip()
+    year_match = ACADEMIC_YEAR_PATTERN.fullmatch(academic_year_value)
+    if not year_match or int(year_match.group(2)) != int(year_match.group(1)) + 1:
+        errors.append(
+            ImportRowError(
+                row=row,
+                field="academic_year",
+                message="Use consecutive years in YYYY-YYYY format.",
+            )
+        )
+
+    program_value = normalize_program(str(program).strip())
+    if program_value is None:
+        errors.append(
+            ImportRowError(
+                row=row,
+                field="program",
+                message=(
+                    "Program is required, cannot be blank, and must be "
+                    f"at most {MAX_PROGRAM_LENGTH} characters."
+                ),
+            )
+        )
+
+    year_level_value = normalize_year_level(str(year_level).strip())
+    if year_level_value is None:
+        errors.append(
+            ImportRowError(
+                row=row,
+                field="year_level",
+                message=(
+                    "Year level must be one of: "
+                    + ", ".join(ALLOWED_YEAR_LEVELS)
+                    + "."
+                ),
+            )
+        )
+
+    sex_value: str | None = None
+    sex_key = str(sex).strip().casefold()
+    if sex_key == "male":
+        sex_value = "Male"
+    elif sex_key == "female":
+        sex_value = "Female"
+    else:
+        errors.append(
+            ImportRowError(
+                row=row,
+                field="sex",
+                message="Sex must be Male or Female.",
+            )
+        )
+
+    location_value = normalize_location(str(location).strip())
+    if not location_value:
+        errors.append(
+            ImportRowError(
+                row=row,
+                field="location",
+                message="Location is required and cannot be blank.",
+            )
+        )
+
+    count_value: int | None = None
+    raw_count = str(enrollment_count).strip()
+    if not re.fullmatch(r"\d+", raw_count):
+        errors.append(
+            ImportRowError(
+                row=row,
+                field="enrollment_count",
+                message="Enrollment count must be a non-negative integer.",
+            )
+        )
+    else:
+        count_value = int(raw_count)
+
+    if errors:
+        raise EnrollmentImportError(
+            "The enrollment record is invalid.",
+            errors,
+        )
+
+    assert program_value is not None
+    assert year_level_value is not None
+    assert sex_value is not None
+    assert location_value
+    assert count_value is not None
+
+    return ValidatedEnrollmentRow(
+        academic_year=academic_year_value,
+        program=program_value,
+        year_level=year_level_value,
+        sex=sex_value,
+        location=location_value,
+        enrollment_count=count_value,
+    )
+
+
 def parse_enrollment_csv(file_bytes: bytes) -> list[ValidatedEnrollmentRow]:
     if not file_bytes:
         raise EnrollmentImportError(
