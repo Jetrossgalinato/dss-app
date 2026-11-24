@@ -8,6 +8,7 @@ import type {
   SectionRecommendationResponse,
 } from '../../shared/section-planning'
 import ForecastExplanation from './ForecastExplanation.vue'
+import HowForecastsWork from './HowForecastsWork.vue'
 import { getCached, setCached } from '../utils/api-cache'
 import {
   buildSectionPlanNarrative,
@@ -283,6 +284,8 @@ watch(
                 are not saved.
               </p>
             </form>
+
+            <HowForecastsWork class="mt-5" />
 
             <div
               v-if="error"

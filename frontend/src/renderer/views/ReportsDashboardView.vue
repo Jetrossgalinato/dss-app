@@ -12,6 +12,7 @@ import {
   setCachedDashboardReport,
 } from '../utils/report-prefetch'
 import ForecastExplanation from '../components/ForecastExplanation.vue'
+import HowForecastsWork from '../components/HowForecastsWork.vue'
 import DemographicBreakdownChart from '../components/reports/DemographicBreakdownChart.vue'
 import EnrollmentTrendChart from '../components/reports/EnrollmentTrendChart.vue'
 import ReportDataTables from '../components/reports/ReportDataTables.vue'
@@ -240,6 +241,8 @@ onMounted(() => {
       @submit="applyFilters"
       @reset="resetFilters"
     />
+
+    <HowForecastsWork />
 
     <ForecastExplanation
       v-if="report && report.series.length > 0"
