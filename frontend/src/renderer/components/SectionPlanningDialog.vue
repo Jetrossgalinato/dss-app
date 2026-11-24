@@ -7,7 +7,12 @@ import type {
   SectionRecommendationRequest,
   SectionRecommendationResponse,
 } from '../../shared/section-planning'
+import ForecastExplanation from './ForecastExplanation.vue'
 import { getCached, setCached } from '../utils/api-cache'
+import {
+  buildSectionPlanNarrative,
+  countSeriesMethods,
+} from '../utils/forecast-narrative'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -45,6 +50,20 @@ const totalSections = computed(() =>
 const totalEnrollment = computed(() =>
   rows.value.reduce((total, row) => total + row.predicted_enrollment, 0),
 )
+const planNarrative = computed(() => {
+  if (!result.value) return ''
+  const methods = countSeriesMethods(result.value.series)
+  return buildSectionPlanNarrative({
+    seriesCount: result.value.series.length,
+    horizon: result.value.horizon,
+    projectedLearners: totalEnrollment.value,
+    recommendedSections: totalSections.value,
+    maxClassSize: result.value.max_class_size,
+    arimaCount: methods.arimaCount,
+    linearCount: methods.linearCount,
+    skippedCount: result.value.skipped.length,
+  })
+})
 
 function close(): void {
   if (!loading.value) emit('close')
@@ -344,6 +363,12 @@ watch(
             </div>
 
             <template v-else-if="result">
+              <ForecastExplanation
+                class="mt-5"
+                title="Plan summary"
+                :narrative="planNarrative"
+              />
+
               <div class="mt-5 grid gap-3 sm:grid-cols-3">
                 <div class="rounded-xl border border-slate-200 bg-white p-4">
                   <p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">

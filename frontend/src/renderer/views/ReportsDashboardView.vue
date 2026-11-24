@@ -11,12 +11,17 @@ import {
   getCachedDashboardReport,
   setCachedDashboardReport,
 } from '../utils/report-prefetch'
+import ForecastExplanation from '../components/ForecastExplanation.vue'
 import DemographicBreakdownChart from '../components/reports/DemographicBreakdownChart.vue'
 import EnrollmentTrendChart from '../components/reports/EnrollmentTrendChart.vue'
 import ReportDataTables from '../components/reports/ReportDataTables.vue'
 import ReportFilters from '../components/reports/ReportFilters.vue'
 import ReportSummaryCards from '../components/reports/ReportSummaryCards.vue'
 import SectionRecommendationChart from '../components/reports/SectionRecommendationChart.vue'
+import {
+  buildReportNarrative,
+  countSeriesMethods,
+} from '../utils/forecast-narrative'
 
 const DEFAULT_HORIZON = DEFAULT_REPORT_HORIZON
 const DEFAULT_MAX_CLASS_SIZE = DEFAULT_REPORT_MAX_CLASS_SIZE
@@ -38,6 +43,21 @@ const refreshing = ref(false)
 const errorMessage = ref('')
 
 const canPrint = computed(() => report.value !== null && !loading.value)
+
+const reportNarrative = computed(() => {
+  if (!report.value || report.value.series.length === 0) return ''
+  const methods = countSeriesMethods(report.value.series)
+  return buildReportNarrative({
+    seriesCount: report.value.series.length,
+    horizon: report.value.horizon,
+    projectedLearners: report.value.summary.total_forecast,
+    recommendedSections: report.value.summary.next_year_recommended_sections,
+    maxClassSize: report.value.max_class_size,
+    arimaCount: methods.arimaCount,
+    linearCount: methods.linearCount,
+    skippedCount: report.value.skipped.length,
+  })
+})
 
 const printScope = computed(() => ({
   program: selectedProgram.value || 'All programs',
@@ -219,6 +239,12 @@ onMounted(() => {
       :loading="loading || refreshing"
       @submit="applyFilters"
       @reset="resetFilters"
+    />
+
+    <ForecastExplanation
+      v-if="report && report.series.length > 0"
+      title="Report summary"
+      :narrative="reportNarrative"
     />
 
     <div
