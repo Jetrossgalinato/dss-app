@@ -230,6 +230,22 @@ body {
     gap: 12pt;
   }
 
+  .print-calc-panel {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .print-calc-panel .grid {
+    display: block !important;
+  }
+
+  .print-calc-panel .grid > div {
+    border-right: 0 !important;
+    border-bottom: 1pt solid #cbd5e1 !important;
+  }
+
   .print-report .rounded-2xl,
   .print-report .rounded-xl,
   .print-panel {
