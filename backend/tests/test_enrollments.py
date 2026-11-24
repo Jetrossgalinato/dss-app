@@ -185,3 +185,60 @@ def test_clear_all_enrollment_records(client: TestClient) -> None:
     cleared_again = client.delete("/api/enrollments")
     assert cleared_again.status_code == 200
     assert cleared_again.json() == {"deleted": True, "deleted_count": 0}
+
+
+def test_manual_upsert_insert_and_update(client: TestClient) -> None:
+    created = client.post(
+        "/api/enrollments",
+        json={
+            "academic_year": "2024-2025",
+            "program": "bsit",
+            "year_level": "1st Year",
+            "sex": "Female",
+            "location": "Cebu City",
+            "enrollment_count": 40,
+        },
+    )
+    assert created.status_code == 200
+    body = created.json()
+    assert body["created"] is True
+    assert body["record"]["program"] == "BSIT"
+    assert body["record"]["enrollment_count"] == 40
+
+    updated = client.post(
+        "/api/enrollments",
+        json={
+            "academic_year": "2024-2025",
+            "program": "BSIT",
+            "year_level": "1st Year",
+            "sex": "Female",
+            "location": "Cebu City",
+            "enrollment_count": 44,
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["created"] is False
+    assert updated.json()["record"]["enrollment_count"] == 44
+    assert client.get("/api/enrollments").json()["total"] == 1
+
+
+def test_manual_upsert_rejects_invalid_fields(client: TestClient) -> None:
+    response = client.post(
+        "/api/enrollments",
+        json={
+            "academic_year": "2024-2026",
+            "program": "BSIT",
+            "year_level": "Nursery",
+            "sex": "Unknown",
+            "location": "Cebu City",
+            "enrollment_count": 10,
+        },
+    )
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert detail["message"] == "The enrollment record is invalid."
+    assert {error["field"] for error in detail["errors"]} >= {
+        "academic_year",
+        "year_level",
+        "sex",
+    }

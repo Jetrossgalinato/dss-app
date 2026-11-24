@@ -17,6 +17,20 @@ class EnrollmentRecordResponse(BaseModel):
     updated_at: datetime
 
 
+class EnrollmentUpsertRequest(BaseModel):
+    academic_year: str = Field(min_length=1, max_length=20)
+    program: str = Field(min_length=1, max_length=50)
+    year_level: str = Field(min_length=1, max_length=20)
+    sex: str = Field(min_length=1, max_length=20)
+    location: str = Field(min_length=1, max_length=150)
+    enrollment_count: int = Field(ge=0)
+
+
+class EnrollmentUpsertResponse(BaseModel):
+    created: bool
+    record: EnrollmentRecordResponse
+
+
 class EnrollmentListResponse(BaseModel):
     items: list[EnrollmentRecordResponse]
     total: int

@@ -16,6 +16,8 @@ from app.schemas.enrollment import (
     EnrollmentFilterOptions,
     EnrollmentListResponse,
     EnrollmentRecordResponse,
+    EnrollmentUpsertRequest,
+    EnrollmentUpsertResponse,
     ImportSummary,
 )
 from app.services.enrollment_import import (
@@ -23,6 +25,7 @@ from app.services.enrollment_import import (
     EnrollmentImportError,
     parse_enrollment_csv,
     upsert_enrollment_rows,
+    validate_enrollment_fields,
 )
 from app.services.response_cache import (
     cache_key,
@@ -38,6 +41,63 @@ CSV_TEMPLATE = (
     "2024-2025,BSIT,1st Year,Female,Cebu City,42\n"
     "2024-2025,BSIT,1st Year,Male,Cebu City,38\n"
 )
+
+
+@router.post("", response_model=EnrollmentUpsertResponse)
+def upsert_enrollment(
+    payload: EnrollmentUpsertRequest,
+    db: Session = Depends(get_db),
+) -> EnrollmentUpsertResponse:
+    try:
+        row = validate_enrollment_fields(
+            academic_year=payload.academic_year,
+            program=payload.program,
+            year_level=payload.year_level,
+            sex=payload.sex,
+            location=payload.location,
+            enrollment_count=payload.enrollment_count,
+        )
+        summary = upsert_enrollment_rows(db, [row])
+        record = db.scalars(
+            select(EnrollmentRecord).where(
+                EnrollmentRecord.academic_year == row.academic_year,
+                EnrollmentRecord.program == row.program,
+                EnrollmentRecord.year_level == row.year_level,
+                EnrollmentRecord.sex == row.sex,
+                EnrollmentRecord.location == row.location,
+            )
+        ).first()
+        if record is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={
+                    "message": "The enrollment record could not be loaded after save.",
+                    "errors": [],
+                },
+            )
+        invalidate_all()
+        return EnrollmentUpsertResponse(
+            created=summary.inserted == 1,
+            record=EnrollmentRecordResponse.model_validate(record),
+        )
+    except EnrollmentImportError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "message": exc.message,
+                "errors": [error.model_dump() for error in exc.errors],
+            },
+        ) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "message": "The enrollment record could not be saved.",
+                "errors": [],
+            },
+        ) from exc
 
 
 @router.post("/import", response_model=ImportSummary)

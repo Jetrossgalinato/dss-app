@@ -100,6 +100,19 @@ const api: EnrollmentApi & SectionPlanningApi & ReportsApi = {
       return { ok: false, error: connectionError(error) }
     }
   },
+  upsertEnrollment: async (payload) => {
+    try {
+      return await parseResponse(
+        await backendFetch('/api/enrollments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }),
+      )
+    } catch (error) {
+      return { ok: false, error: connectionError(error) }
+    }
+  },
   listEnrollments: async (filters: EnrollmentFilters) => {
     try {
       const query = new URLSearchParams()

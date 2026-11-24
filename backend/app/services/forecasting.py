@@ -1,5 +1,7 @@
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Literal
 import math
 import re
 import warnings
@@ -12,11 +14,14 @@ from statsmodels.tsa.arima.model import ARIMA
 from app.domain.enrollment_dims import normalize_location
 from app.models.enrollment import EnrollmentRecord
 from app.schemas.forecast import (
+    ForecastCalculationExplain,
+    ForecastHistoryExplainRow,
     ForecastPoint,
     ForecastRequest,
     ForecastResponse,
     HistoricalEnrollmentPoint,
     SeriesForecast,
+    SeriesForecastExplanation,
     SkippedForecastSeries,
 )
 
@@ -36,6 +41,18 @@ class ForecastingError(ValueError):
         super().__init__(message)
         self.message = message
         self.skipped = skipped or []
+
+
+@dataclass
+class ModelFitResult:
+    method: str
+    model_label: str
+    predictions: np.ndarray
+    fitted_values: np.ndarray
+    ar_coefficient: float | None = None
+    trend_coefficient: float | None = None
+    slope: float | None = None
+    intercept: float | None = None
 
 
 class EnrollmentForecastService:
@@ -208,17 +225,16 @@ class EnrollmentForecastService:
             for previous, current in zip(start_years, start_years[1:])
         )
 
-        method = "linear_trend"
-        predictions: np.ndarray
+        fit: ModelFitResult
         if len(parsed) >= ARIMA_MINIMUM_OBSERVATIONS and contiguous:
             try:
-                predictions = self._forecast_arima(values, horizon)
-                method = "arima"
+                fit = self._forecast_arima(values, horizon)
             except (ValueError, RuntimeError, ArithmeticError, np.linalg.LinAlgError):
-                predictions = self._forecast_linear(start_years, values, horizon)
+                fit = self._forecast_linear(start_years, values, horizon)
         else:
-            predictions = self._forecast_linear(start_years, values, horizon)
+            fit = self._forecast_linear(start_years, values, horizon)
 
+        predictions = fit.predictions
         if len(predictions) != horizon or not np.all(np.isfinite(predictions)):
             raise ForecastingError("The forecasting model produced invalid results.")
 
@@ -237,7 +253,16 @@ class EnrollmentForecastService:
             )
             for _, academic_year, count in parsed
         ]
+        explanation = self._build_explanation(
+            academic_years=[point[1] for point in parsed],
+            values=values,
+            fit=fit,
+            first_projection=projected[0],
+        )
 
+        method: Literal["arima", "linear_trend"] = (
+            "arima" if fit.method == "arima" else "linear_trend"
+        )
         return SeriesForecast(
             program=program,
             year_level=year_level,
@@ -246,9 +271,10 @@ class EnrollmentForecastService:
             observations_used=len(parsed),
             history=historical,
             forecast=projected,
+            explanation=explanation,
         )
 
-    def _forecast_arima(self, values: np.ndarray, horizon: int) -> np.ndarray:
+    def _forecast_arima(self, values: np.ndarray, horizon: int) -> ModelFitResult:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             fitted = ARIMA(values, order=(1, 1, 0), trend="t").fit()
@@ -259,14 +285,35 @@ class EnrollmentForecastService:
         predictions = np.asarray(fitted.forecast(steps=horizon), dtype=float)
         if not np.all(np.isfinite(predictions)):
             raise ArithmeticError("ARIMA produced non-finite values.")
-        return predictions
+
+        params = fitted.params
+        ar_coefficient = self._param_value(params, ("ar.L1", "ar.L1.y"))
+        trend_coefficient = self._param_value(
+            params,
+            ("trend.t", "x1", "const"),
+        )
+        fitted_values = np.asarray(fitted.fittedvalues, dtype=float)
+        if len(fitted_values) < len(values):
+            pad = np.full(len(values) - len(fitted_values), np.nan)
+            fitted_values = np.concatenate([pad, fitted_values])
+        elif len(fitted_values) > len(values):
+            fitted_values = fitted_values[-len(values) :]
+
+        return ModelFitResult(
+            method="arima",
+            model_label="ARIMA(1,1,0) with trend",
+            predictions=predictions,
+            fitted_values=fitted_values,
+            ar_coefficient=ar_coefficient,
+            trend_coefficient=trend_coefficient,
+        )
 
     def _forecast_linear(
         self,
         start_years: np.ndarray,
         values: np.ndarray,
         horizon: int,
-    ) -> np.ndarray:
+    ) -> ModelFitResult:
         centered_years = start_years - start_years[0]
         design = np.column_stack((centered_years, np.ones(len(centered_years))))
         slope, intercept = np.linalg.lstsq(design, values, rcond=None)[0]
@@ -275,7 +322,118 @@ class EnrollmentForecastService:
             centered_years[-1] + horizon + 1,
             dtype=float,
         )
-        return slope * future_years + intercept
+        predictions = slope * future_years + intercept
+        fitted_values = slope * centered_years + intercept
+        return ModelFitResult(
+            method="linear_trend",
+            model_label="Linear trend",
+            predictions=predictions,
+            fitted_values=fitted_values,
+            slope=float(slope),
+            intercept=float(intercept),
+        )
+
+    def _build_explanation(
+        self,
+        *,
+        academic_years: list[str],
+        values: np.ndarray,
+        fit: ModelFitResult,
+        first_projection: ForecastPoint,
+    ) -> SeriesForecastExplanation:
+        history_rows: list[ForecastHistoryExplainRow] = []
+        abs_errors: list[float] = []
+        previous: int | None = None
+        for index, academic_year in enumerate(academic_years):
+            actual = int(values[index])
+            yearly_change = 0 if previous is None else actual - previous
+            previous = actual
+            fitted = (
+                float(fit.fitted_values[index])
+                if index < len(fit.fitted_values)
+                else float("nan")
+            )
+            model_error: float | None = None
+            if math.isfinite(fitted):
+                model_error = round(actual - fitted, 4)
+                abs_errors.append(abs(model_error))
+            history_rows.append(
+                ForecastHistoryExplainRow(
+                    academic_year=academic_year,
+                    actual_enrollment=actual,
+                    yearly_change=yearly_change,
+                    model_error=model_error,
+                )
+            )
+
+        latest_enrollment = int(values[-1])
+        latest_change = (
+            0 if len(values) < 2 else int(values[-1]) - int(values[-2])
+        )
+        raw_forecast = float(fit.predictions[0])
+        predicted_change = raw_forecast - latest_enrollment
+        total_abs_error = (
+            round(sum(abs_errors), 4) if abs_errors else None
+        )
+
+        calc_method: Literal["arima", "linear_trend"] = (
+            "arima" if fit.method == "arima" else "linear_trend"
+        )
+        calculation = ForecastCalculationExplain(
+            method=calc_method,
+            model_label=fit.model_label,
+            latest_enrollment=latest_enrollment,
+            latest_change=latest_change,
+            predicted_change=round(predicted_change, 4),
+            raw_forecast=round(raw_forecast, 4),
+            final_forecast=first_projection.predicted_count,
+            ar_coefficient=(
+                round(fit.ar_coefficient, 9)
+                if fit.ar_coefficient is not None
+                else None
+            ),
+            trend_coefficient=(
+                round(fit.trend_coefficient, 9)
+                if fit.trend_coefficient is not None
+                else None
+            ),
+            slope=round(fit.slope, 9) if fit.slope is not None else None,
+            intercept=(
+                round(fit.intercept, 9) if fit.intercept is not None else None
+            ),
+            total_abs_error=total_abs_error,
+        )
+        return SeriesForecastExplanation(
+            history_rows=history_rows,
+            calculation=calculation,
+        )
+
+    @staticmethod
+    def _param_value(params: object, names: tuple[str, ...]) -> float | None:
+        if params is None:
+            return None
+        try:
+            index = getattr(params, "index", None)
+            if index is not None:
+                for name in names:
+                    if name in index:
+                        value = float(params[name])
+                        return value if math.isfinite(value) else None
+            values = np.asarray(params, dtype=float).ravel()
+            if len(values) == 0:
+                return None
+            # Prefer AR term then trend for unnamed arrays.
+            for offset, name in enumerate(names):
+                if "ar" in name and len(values) > 0:
+                    value = float(values[0])
+                    return value if math.isfinite(value) else None
+            if len(values) > 1:
+                value = float(values[1])
+                return value if math.isfinite(value) else None
+            value = float(values[0])
+            return value if math.isfinite(value) else None
+        except (TypeError, ValueError, KeyError, IndexError):
+            return None
 
     @staticmethod
     def _normalize_prediction(value: float) -> int:
