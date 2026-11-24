@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 
 import type { DashboardReportRequest, DashboardReportResponse } from '../../shared/reports'
@@ -10,15 +11,24 @@ import {
   getCachedDashboardReport,
   setCachedDashboardReport,
 } from '../utils/report-prefetch'
+import ForecastExplanation from '../components/ForecastExplanation.vue'
+import HowForecastsWork from '../components/HowForecastsWork.vue'
 import DemographicBreakdownChart from '../components/reports/DemographicBreakdownChart.vue'
 import EnrollmentTrendChart from '../components/reports/EnrollmentTrendChart.vue'
 import ReportDataTables from '../components/reports/ReportDataTables.vue'
 import ReportFilters from '../components/reports/ReportFilters.vue'
 import ReportSummaryCards from '../components/reports/ReportSummaryCards.vue'
 import SectionRecommendationChart from '../components/reports/SectionRecommendationChart.vue'
+import {
+  buildReportNarrative,
+  countSeriesMethods,
+} from '../utils/forecast-narrative'
 
 const DEFAULT_HORIZON = DEFAULT_REPORT_HORIZON
 const DEFAULT_MAX_CLASS_SIZE = DEFAULT_REPORT_MAX_CLASS_SIZE
+
+const route = useRoute()
+const isReportsRoute = computed(() => route.name === 'reports')
 
 const report = ref<DashboardReportResponse | null>(null)
 const programs = ref<string[]>([])
@@ -32,6 +42,36 @@ const maxClassSize = ref(DEFAULT_MAX_CLASS_SIZE)
 const loading = ref(true)
 const refreshing = ref(false)
 const errorMessage = ref('')
+
+const canPrint = computed(() => report.value !== null && !loading.value)
+
+const reportNarrative = computed(() => {
+  if (!report.value || report.value.series.length === 0) return ''
+  const methods = countSeriesMethods(report.value.series)
+  return buildReportNarrative({
+    seriesCount: report.value.series.length,
+    horizon: report.value.horizon,
+    projectedLearners: report.value.summary.total_forecast,
+    recommendedSections: report.value.summary.next_year_recommended_sections,
+    maxClassSize: report.value.max_class_size,
+    arimaCount: methods.arimaCount,
+    linearCount: methods.linearCount,
+    skippedCount: report.value.skipped.length,
+  })
+})
+
+const printScope = computed(() => ({
+  program: selectedProgram.value || 'All programs',
+  yearLevel: selectedYearLevel.value || 'All year levels',
+  location: selectedLocation.value || 'All locations',
+  horizon: `${horizon.value} academic ${horizon.value === 1 ? 'year' : 'years'}`,
+  maxClassSize: String(maxClassSize.value),
+}))
+
+const printGeneratedAt = computed(() => {
+  if (!report.value) return ''
+  return new Date(report.value.generated_at).toLocaleString()
+})
 
 function reportRequest(): DashboardReportRequest {
   return {
@@ -151,6 +191,11 @@ function resetFilters(): void {
   void loadReport(true)
 }
 
+function printReport(): void {
+  if (!canPrint.value) return
+  window.print()
+}
+
 onMounted(() => {
   if (!report.value) {
     void loadReport()
@@ -160,7 +205,28 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6">
+    <Teleport v-if="isReportsRoute" to="#page-actions" defer>
+      <button
+        class="no-print inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:ring-2 focus:ring-slate-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        type="button"
+        :disabled="!canPrint"
+        @click="printReport"
+      >
+        <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M7 8V4h10v4M7 16H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 12h10v8H7v-8Z"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        Print report
+      </button>
+    </Teleport>
+
     <ReportFilters
+      class="no-print"
       :programs="programs"
       :year-levels="yearLevels"
       :locations="locations"
@@ -176,9 +242,17 @@ onMounted(() => {
       @reset="resetFilters"
     />
 
+    <HowForecastsWork />
+
+    <ForecastExplanation
+      v-if="report && report.series.length > 0"
+      title="Report summary"
+      :narrative="reportNarrative"
+    />
+
     <div
       v-if="loading && !report"
-      class="space-y-4"
+      class="no-print space-y-4"
       aria-live="polite"
       aria-label="Loading report"
     >
@@ -197,7 +271,7 @@ onMounted(() => {
 
     <div
       v-else-if="errorMessage && !report"
-      class="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800"
+      class="no-print rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800"
       role="alert"
     >
       <h3 class="font-semibold">Report unavailable</h3>
@@ -209,7 +283,7 @@ onMounted(() => {
 
     <div
       v-else-if="!report || report.series.length === 0"
-      class="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm"
+      class="no-print rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm"
     >
       <h3 class="font-semibold text-slate-900">No report data</h3>
       <p class="mt-1 text-sm text-slate-500">
@@ -217,10 +291,43 @@ onMounted(() => {
       </p>
     </div>
 
-    <template v-else>
+    <div v-else class="print-report space-y-6">
+      <header class="print-only print-letterhead">
+        <p class="print-letterhead__org">Charismatic Tutorial Learning Center</p>
+        <p class="print-letterhead__product">Enrollment Forecasting DSS</p>
+        <hr class="print-letterhead__rule" />
+        <h1 class="print-letterhead__title">Enrollment &amp; Section Forecast Report</h1>
+        <dl class="print-meta">
+          <div>
+            <dt>Generated</dt>
+            <dd>{{ printGeneratedAt }}</dd>
+          </div>
+          <div>
+            <dt>Program</dt>
+            <dd>{{ printScope.program }}</dd>
+          </div>
+          <div>
+            <dt>Year level</dt>
+            <dd>{{ printScope.yearLevel }}</dd>
+          </div>
+          <div>
+            <dt>Location</dt>
+            <dd>{{ printScope.location }}</dd>
+          </div>
+          <div>
+            <dt>Forecast horizon</dt>
+            <dd>{{ printScope.horizon }}</dd>
+          </div>
+          <div>
+            <dt>Maximum class size</dt>
+            <dd>{{ printScope.maxClassSize }}</dd>
+          </div>
+        </dl>
+      </header>
+
       <div
         v-if="report.skipped.length"
-        class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 print-note"
         role="status"
       >
         <p class="font-semibold">Some series were skipped</p>
@@ -234,21 +341,54 @@ onMounted(() => {
         </ul>
       </div>
 
-      <ReportSummaryCards :summary="report.summary" />
-      <EnrollmentTrendChart :series="report.series" />
-      <div class="grid gap-6 lg:grid-cols-2">
-        <DemographicBreakdownChart :historical="report.historical" />
-        <SectionRecommendationChart :series="report.series" />
+      <section class="print-section" aria-labelledby="print-section-summary">
+        <h2 id="print-section-summary" class="print-only print-section__title">
+          1. Executive summary
+        </h2>
+        <ReportSummaryCards :summary="report.summary" />
+      </section>
+
+      <section class="print-section" aria-labelledby="print-section-trend">
+        <h2 id="print-section-trend" class="print-only print-section__title">
+          2. Enrollment trend
+        </h2>
+        <EnrollmentTrendChart :series="report.series" />
+      </section>
+
+      <div class="grid gap-6 lg:grid-cols-2 print-chart-grid">
+        <section class="print-section" aria-labelledby="print-section-demo">
+          <h2 id="print-section-demo" class="print-only print-section__title">
+            3. Demographic breakdown
+          </h2>
+          <DemographicBreakdownChart :historical="report.historical" />
+        </section>
+        <section class="print-section" aria-labelledby="print-section-sections">
+          <h2 id="print-section-sections" class="print-only print-section__title">
+            4. Section recommendations
+          </h2>
+          <SectionRecommendationChart :series="report.series" />
+        </section>
       </div>
-      <ReportDataTables
-        :historical="report.historical"
-        :series="report.series"
-        :max-class-size="report.max_class_size"
-      />
-      <p class="text-right text-xs text-slate-400">
+
+      <section class="print-section" aria-labelledby="print-section-tables">
+        <h2 id="print-section-tables" class="print-only print-section__title">
+          5. Detailed data
+        </h2>
+        <ReportDataTables
+          :historical="report.historical"
+          :series="report.series"
+          :max-class-size="report.max_class_size"
+        />
+      </section>
+
+      <p class="no-print text-right text-xs text-slate-400">
         Generated {{ new Date(report.generated_at).toLocaleString() }}
         <span v-if="refreshing"> · Refreshing…</span>
       </p>
-    </template>
+
+      <footer class="print-only print-footer">
+        Confidential · internal planning use · Charismatic Tutorial Learning Center
+      </footer>
+    </div>
   </div>
 </template>

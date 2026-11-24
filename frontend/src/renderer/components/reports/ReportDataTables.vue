@@ -13,13 +13,13 @@ defineProps<{
 </script>
 
 <template>
-  <div class="grid gap-6 xl:grid-cols-2">
-    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+  <div class="print-tables grid gap-6 xl:grid-cols-2">
+    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print-panel">
       <div class="border-b border-slate-200 px-5 py-4">
         <h3 class="font-semibold text-slate-900">Forecast and section details</h3>
         <p class="text-sm text-slate-500">Maximum {{ maxClassSize }} students per section</p>
       </div>
-      <div class="max-h-96 overflow-auto">
+      <div class="print-table-scroll max-h-96 overflow-auto">
         <table class="w-full border-collapse text-left text-sm">
           <thead class="sticky top-0 bg-slate-50 text-xs tracking-wide text-slate-500 uppercase">
             <tr>
@@ -56,12 +56,12 @@ defineProps<{
       </div>
     </section>
 
-    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print-panel">
       <div class="border-b border-slate-200 px-5 py-4">
         <h3 class="font-semibold text-slate-900">Historical details</h3>
         <p class="text-sm text-slate-500">Exact enrollment totals by sex</p>
       </div>
-      <div class="max-h-96 overflow-auto">
+      <div class="print-table-scroll max-h-96 overflow-auto">
         <table class="w-full border-collapse text-left text-sm">
           <thead class="sticky top-0 bg-slate-50 text-xs tracking-wide text-slate-500 uppercase">
             <tr>
