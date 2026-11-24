@@ -59,6 +59,20 @@ export interface ImportSummary {
   total: number
 }
 
+export interface EnrollmentUpsertPayload {
+  academic_year: string
+  program: string
+  year_level: string
+  sex: 'Male' | 'Female'
+  location: string
+  enrollment_count: number
+}
+
+export interface EnrollmentUpsertResult {
+  created: boolean
+  record: EnrollmentRecord
+}
+
 export interface ApiError {
   message: string
   errors: ImportRowError[]
@@ -72,6 +86,9 @@ export interface EnrollmentApi {
     filename: string,
     bytes: Uint8Array,
   ) => Promise<ApiResult<ImportSummary>>
+  upsertEnrollment: (
+    payload: EnrollmentUpsertPayload,
+  ) => Promise<ApiResult<EnrollmentUpsertResult>>
   listEnrollments: (filters: EnrollmentFilters) => Promise<ApiResult<EnrollmentList>>
   getEnrollmentFilterOptions: () => Promise<ApiResult<EnrollmentFilterOptions>>
   deleteEnrollment: (id: number) => Promise<ApiResult<{ deleted: boolean; id: number }>>

@@ -3,7 +3,11 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.schemas.forecast import HistoricalEnrollmentPoint, SkippedForecastSeries
+from app.schemas.forecast import (
+    HistoricalEnrollmentPoint,
+    SeriesForecastExplanation,
+    SkippedForecastSeries,
+)
 from app.schemas.sections import SectionRecommendationRequest
 
 
@@ -36,6 +40,7 @@ class DashboardForecastSeries(BaseModel):
     observations_used: int = Field(ge=2)
     history: list[HistoricalEnrollmentPoint]
     projections: list[ReportProjectionPoint]
+    explanation: SeriesForecastExplanation
 
 
 class DashboardSummary(BaseModel):

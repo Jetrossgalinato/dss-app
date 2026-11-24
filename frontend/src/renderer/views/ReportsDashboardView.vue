@@ -15,6 +15,7 @@ import ForecastExplanation from '../components/ForecastExplanation.vue'
 import HowForecastsWork from '../components/HowForecastsWork.vue'
 import DemographicBreakdownChart from '../components/reports/DemographicBreakdownChart.vue'
 import EnrollmentTrendChart from '../components/reports/EnrollmentTrendChart.vue'
+import ForecastCalculationPanel from '../components/reports/ForecastCalculationPanel.vue'
 import ReportDataTables from '../components/reports/ReportDataTables.vue'
 import ReportFilters from '../components/reports/ReportFilters.vue'
 import ReportSummaryCards from '../components/reports/ReportSummaryCards.vue'
@@ -42,8 +43,35 @@ const maxClassSize = ref(DEFAULT_MAX_CLASS_SIZE)
 const loading = ref(true)
 const refreshing = ref(false)
 const errorMessage = ref('')
+const selectedSeriesKey = ref('')
 
 const canPrint = computed(() => report.value !== null && !loading.value)
+
+function seriesKey(item: {
+  program: string
+  year_level: string
+  location: string
+}): string {
+  return `${item.program}||${item.year_level}||${item.location}`
+}
+
+function syncSelectedSeries(data: DashboardReportResponse): void {
+  const keys = data.series.map(seriesKey)
+  if (keys.length === 0) {
+    selectedSeriesKey.value = ''
+    return
+  }
+  if (keys.includes(selectedSeriesKey.value)) return
+  selectedSeriesKey.value = keys[0]
+}
+
+function reportHasExplanation(data: DashboardReportResponse): boolean {
+  return data.series.every(
+    (item) =>
+      item.explanation?.calculation != null &&
+      Array.isArray(item.explanation.history_rows),
+  )
+}
 
 const reportNarrative = computed(() => {
   if (!report.value || report.value.series.length === 0) return ''
@@ -88,11 +116,12 @@ function applyReport(data: DashboardReportResponse): void {
   programs.value = data.available_programs
   yearLevels.value = data.available_year_levels
   locations.value = data.available_locations
+  syncSelectedSeries(data)
 }
 
 function hydrateFromCache(): boolean {
   const cached = getCachedDashboardReport(reportRequest())
-  if (!cached) return false
+  if (!cached || !reportHasExplanation(cached)) return false
   applyReport(cached)
   errorMessage.value = ''
   loading.value = false
@@ -104,7 +133,7 @@ hydrateFromCache()
 async function loadReport(showSuccess = false): Promise<void> {
   const request = reportRequest()
   const cached = getCachedDashboardReport(request)
-  if (cached) {
+  if (cached && reportHasExplanation(cached)) {
     applyReport(cached)
     errorMessage.value = ''
     loading.value = false
@@ -348,9 +377,20 @@ onMounted(() => {
         <ReportSummaryCards :summary="report.summary" />
       </section>
 
+      <section class="print-section" aria-labelledby="print-section-calculation">
+        <h2 id="print-section-calculation" class="print-only print-section__title">
+          2. Forecast calculation
+        </h2>
+        <ForecastCalculationPanel
+          :series="report.series"
+          :selected-key="selectedSeriesKey"
+          @update:selected-key="selectedSeriesKey = $event"
+        />
+      </section>
+
       <section class="print-section" aria-labelledby="print-section-trend">
         <h2 id="print-section-trend" class="print-only print-section__title">
-          2. Enrollment trend
+          3. Enrollment trend
         </h2>
         <EnrollmentTrendChart :series="report.series" />
       </section>
@@ -358,13 +398,13 @@ onMounted(() => {
       <div class="grid gap-6 lg:grid-cols-2 print-chart-grid">
         <section class="print-section" aria-labelledby="print-section-demo">
           <h2 id="print-section-demo" class="print-only print-section__title">
-            3. Demographic breakdown
+            4. Demographic breakdown
           </h2>
           <DemographicBreakdownChart :historical="report.historical" />
         </section>
         <section class="print-section" aria-labelledby="print-section-sections">
           <h2 id="print-section-sections" class="print-only print-section__title">
-            4. Section recommendations
+            5. Section recommendations
           </h2>
           <SectionRecommendationChart :series="report.series" />
         </section>
@@ -372,7 +412,7 @@ onMounted(() => {
 
       <section class="print-section" aria-labelledby="print-section-tables">
         <h2 id="print-section-tables" class="print-only print-section__title">
-          5. Detailed data
+          6. Detailed data
         </h2>
         <ReportDataTables
           :historical="report.historical"

@@ -88,6 +88,33 @@ class ForecastPoint(BaseModel):
     predicted_count: int = Field(ge=0)
 
 
+class ForecastHistoryExplainRow(BaseModel):
+    academic_year: str
+    actual_enrollment: int = Field(ge=0)
+    yearly_change: int
+    model_error: float | None = None
+
+
+class ForecastCalculationExplain(BaseModel):
+    method: Literal["arima", "linear_trend"]
+    model_label: str
+    latest_enrollment: int = Field(ge=0)
+    latest_change: int
+    predicted_change: float
+    raw_forecast: float
+    final_forecast: int = Field(ge=0)
+    ar_coefficient: float | None = None
+    trend_coefficient: float | None = None
+    slope: float | None = None
+    intercept: float | None = None
+    total_abs_error: float | None = None
+
+
+class SeriesForecastExplanation(BaseModel):
+    history_rows: list[ForecastHistoryExplainRow]
+    calculation: ForecastCalculationExplain
+
+
 class SeriesForecast(BaseModel):
     program: str
     year_level: str
@@ -96,6 +123,7 @@ class SeriesForecast(BaseModel):
     observations_used: int = Field(ge=2)
     history: list[HistoricalEnrollmentPoint]
     forecast: list[ForecastPoint]
+    explanation: SeriesForecastExplanation
 
 
 class SkippedForecastSeries(BaseModel):

@@ -30,6 +30,33 @@ export interface ReportProjectionPoint {
   planned_class_size: number
 }
 
+export interface ForecastHistoryExplainRow {
+  academic_year: string
+  actual_enrollment: number
+  yearly_change: number
+  model_error: number | null
+}
+
+export interface ForecastCalculationExplain {
+  method: 'arima' | 'linear_trend'
+  model_label: string
+  latest_enrollment: number
+  latest_change: number
+  predicted_change: number
+  raw_forecast: number
+  final_forecast: number
+  ar_coefficient: number | null
+  trend_coefficient: number | null
+  slope: number | null
+  intercept: number | null
+  total_abs_error: number | null
+}
+
+export interface SeriesForecastExplanation {
+  history_rows: ForecastHistoryExplainRow[]
+  calculation: ForecastCalculationExplain
+}
+
 export interface DashboardForecastSeries {
   program: string
   year_level: string
@@ -38,6 +65,7 @@ export interface DashboardForecastSeries {
   observations_used: number
   history: ReportHistoryPoint[]
   projections: ReportProjectionPoint[]
+  explanation: SeriesForecastExplanation
 }
 
 export interface SkippedReportSeries {

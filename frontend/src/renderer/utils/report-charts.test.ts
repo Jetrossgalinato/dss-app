@@ -11,6 +11,28 @@ import {
   sortAcademicYears,
 } from './report-charts'
 
+function stubExplanation(
+  finalForecast: number,
+): DashboardForecastSeries['explanation'] {
+  return {
+    history_rows: [],
+    calculation: {
+      method: 'linear_trend',
+      model_label: 'Linear trend',
+      latest_enrollment: 0,
+      latest_change: 0,
+      predicted_change: 0,
+      raw_forecast: finalForecast,
+      final_forecast: finalForecast,
+      ar_coefficient: null,
+      trend_coefficient: null,
+      slope: 1,
+      intercept: 0,
+      total_abs_error: null,
+    },
+  }
+}
+
 const series: DashboardForecastSeries[] = [
   {
     program: 'BSIT',
@@ -30,6 +52,7 @@ const series: DashboardForecastSeries[] = [
         planned_class_size: 12,
       },
     ],
+    explanation: stubExplanation(24),
   },
   {
     program: 'BSCS',
@@ -49,6 +72,7 @@ const series: DashboardForecastSeries[] = [
         planned_class_size: 18,
       },
     ],
+    explanation: stubExplanation(36),
   },
 ]
 

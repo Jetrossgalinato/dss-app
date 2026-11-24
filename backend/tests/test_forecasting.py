@@ -59,6 +59,15 @@ def test_linear_forecast_aggregates_demographics_and_orders_history(
         {"academic_year": "2024-2025", "predicted_count": 26},
         {"academic_year": "2025-2026", "predicted_count": 28},
     ]
+    explanation = series["explanation"]
+    assert explanation["calculation"]["method"] == "linear_trend"
+    assert explanation["calculation"]["model_label"] == "Linear trend"
+    assert explanation["calculation"]["slope"] is not None
+    assert explanation["calculation"]["intercept"] is not None
+    assert explanation["calculation"]["final_forecast"] == 26
+    assert len(explanation["history_rows"]) == 3
+    assert explanation["history_rows"][0]["yearly_change"] == 0
+    assert explanation["history_rows"][1]["yearly_change"] == 2
 
 
 def test_gapped_history_uses_actual_years_and_linear_trend(
@@ -120,6 +129,14 @@ def test_arima_is_selected_for_sufficient_contiguous_history(
         and point["predicted_count"] >= 0
         for point in series["forecast"]
     )
+    explanation = series["explanation"]
+    assert explanation["calculation"]["method"] == "arima"
+    assert explanation["calculation"]["model_label"] == "ARIMA(1,1,0) with trend"
+    assert explanation["calculation"]["ar_coefficient"] is not None
+    assert explanation["calculation"]["final_forecast"] == series["forecast"][0][
+        "predicted_count"
+    ]
+    assert len(explanation["history_rows"]) == series["observations_used"]
 
 
 def test_arima_failure_falls_back_and_negative_results_are_clamped(

@@ -74,6 +74,7 @@ class DashboardReportService:
                     observations_used=series.observations_used,
                     history=series.history,
                     projections=projections,
+                    explanation=series.explanation,
                 )
             )
 
