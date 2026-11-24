@@ -21,6 +21,7 @@ onMounted(async () => {
 <template>
   <div class="min-h-full">
     <Toaster
+      class="no-print"
       position="top-right"
       close-button
       close-button-position="top-right"
@@ -28,7 +29,7 @@ onMounted(async () => {
       :duration="5000"
       :offset="{ top: '20px', right: '20px' }"
     />
-    <header class="border-b border-slate-200 bg-white/90 px-6 py-4 backdrop-blur">
+    <header class="no-print border-b border-slate-200 bg-white/90 px-6 py-4 backdrop-blur">
       <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
         <div>
           <p class="text-xs font-semibold tracking-[0.16em] text-blue-700 uppercase">
@@ -59,14 +60,17 @@ onMounted(async () => {
     <main class="mx-auto max-w-7xl px-6 py-8">
       <div
         v-if="healthOk === false"
-        class="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+        class="no-print mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
       >
         The local data service is unavailable. Restart the application; if the
         problem continues, check the backend log in the application data folder.
       </div>
-      <div class="mb-6">
-        <h2 class="text-2xl font-semibold tracking-tight text-slate-900">{{ pageTitle }}</h2>
-        <p class="mt-1 text-sm text-slate-600">{{ pageDescription }}</p>
+      <div class="no-print mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="text-2xl font-semibold tracking-tight text-slate-900">{{ pageTitle }}</h2>
+          <p class="mt-1 text-sm text-slate-600">{{ pageDescription }}</p>
+        </div>
+        <div id="page-actions" class="shrink-0" />
       </div>
       <RouterView v-slot="{ Component }">
         <KeepAlive>
